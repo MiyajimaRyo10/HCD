@@ -1615,46 +1615,51 @@
 
                         replyText = rawText;
 
-                        // Add Reply (Multi-Bubble Support)
-                        const messages = replyText.split('|||').map(t => t.trim()).filter(t => t);
-
-                        // Function to add messages sequentially
-                        const addMessagesSequentially = (index) => {
-                            if (index >= messages.length) {
-                                // All messages added, check for exit
-                                if (shouldExit) {
-                                    setTimeout(() => {
-                                        if (node.chatMode === 'ai' && node.passNext) {
-                                            // Skip evaluation here, go to Ending first
-                                            triggerNext(node.passNext);
-                                        } else {
-                                            triggerNext(node.next);
-                                        }
-                                    }, 2000);
-                                }
-                                return;
-                            }
-
-                            chatHistory.push({ sender: 'them', text: messages[index] });
-                            render(); // Re-render chat view
-
-                            // Scroll to bottom
-                            const chatContainer = document.getElementById('chat-messages');
-                            if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-
-                            // Schedule next message
-                            setTimeout(() => addMessagesSequentially(index + 1), 1000);
-                        };
-
-                        // Start adding messages with initial delay
-                        setTimeout(() => addMessagesSequentially(0), 1000);
                     } catch (e) {
-                        console.error(e);
+                        console.error("Gemini API Error in Chat:", e);
                         replyText = "Error: " + e.message;
                     }
-                }
-            } catch (e) { alert("Error: " + e.message); }
-        }
+
+                    // Add Reply (Multi-Bubble Support) (This runs whether try succeeds or goes to catch and sets an error string)
+                    const messages = replyText.split('|||').map(t => t.trim()).filter(t => t);
+
+                    // Function to add messages sequentially
+                    const addMessagesSequentially = (index) => {
+                        if (index >= messages.length) {
+                            // All messages added, check for exit
+                            if (shouldExit) {
+                                setTimeout(() => {
+                                    if (node.chatMode === 'ai' && node.passNext) {
+                                        // Skip evaluation here, go to Ending first
+                                        triggerNext(node.passNext);
+                                    } else {
+                                        triggerNext(node.next);
+                                    }
+                                }, 2000);
+                            }
+                            return;
+                        }
+
+                        chatHistory.push({ sender: 'them', text: messages[index] });
+                        render(); // Re-render chat view
+
+                        // Scroll to bottom
+                        const chatContainer = document.getElementById('chat-messages');
+                        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                        // Schedule next message
+                        setTimeout(() => addMessagesSequentially(index + 1), 1000); // UI Rendering logic
+                    };
+
+                    // Start adding messages with initial delay
+                    setTimeout(() => addMessagesSequentially(0), 1000);
+                } // End of if (node.chatMode === 'ai')
+
+            } catch (e) {
+                console.error("Overall Chat Rendering Error:", e);
+                alert("Error: " + e.message);
+            }
+        } // End of handleChatSend
 
         // AIによるチャット評価処理 (学びの評価に基づく)
         async function evaluateChat(node, nextIdOverride) {
