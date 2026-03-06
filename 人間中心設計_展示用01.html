@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>人間中心設計</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        /* iOS height fix */
+        html,
+        body {
+            height: 100%;
+            height: -webkit-fill-available;
+        }
+
+        body {
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+            overflow: hidden;
+            /* Prevent pull-to-refresh and overscroll */
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+            /* Safe area support */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        .device-frame {
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+            height: -webkit-fill-available;
+            max-height: 800px;
+            background: white;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            /* Touch optimization */
+            touch-action: pan-y;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Desktop only: Show device frame */
+        @media(min-width: 1025px) {
+            .device-frame {
+                height: 85vh;
+                border-radius: 40px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+                border: 8px solid #334155;
+            }
+        }
+
+        /* Mobile/Tablet: Full screen on phones and tablets */
+        @media(max-width: 1024px) {
+            .device-frame {
+                max-width: none;
+                max-height: none;
+                border-radius: 0;
+                height: 100%;
+                height: -webkit-fill-available;
+            }
+
+            body {
+                padding: 0;
+            }
+        }
+
+        /* Mesh Background */
+        .mesh-bg {
+            background-color: #f5f5f7;
+            background-image:
+                radial-gradient(at 40% 20%, hsla(28, 100%, 74%, 1) 0px, transparent 50%),
+                radial-gradient(at 80% 0%, hsla(189, 100%, 56%, 1) 0px, transparent 50%),
+                radial-gradient(at 0% 50%, hsla(340, 100%, 76%, 1) 0px, transparent 50%),
+                radial-gradient(at 80% 50%, hsla(240, 100%, 70%, 1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, hsla(22, 100%, 77%, 1) 0px, transparent 50%);
+            background-size: 200% 200%;
+            animation: meshGradient 20s ease infinite;
+        }
+
+        @keyframes meshGradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .notification {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 12px;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transform: translateY(-150%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+            display: flex;
+            gap: 12px;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+        }
+
+        /* Utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Glitch Effect - SF Style */
+        .glitch-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: black;
+            overflow: hidden;
+        }
+
+        .glitch-text {
+            position: relative;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            animation: glitch 0.3s infinite;
+            text-shadow: 2px 0 red, -2px 0 blue;
+        }
+
+        .glitch-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+
+        .glitch-layer::before,
+        .glitch-layer::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            opacity: 0.1;
+        }
+
+        .glitch-layer::before {
+            background: rgba(0, 255, 255, 0.2);
+            animation: glitch-anim-1 0.2s infinite linear alternate-reverse;
+        }
+
+        .glitch-layer::after {
+            background: rgba(255, 0, 0, 0.2);
+            animation: glitch-anim-2 0.2s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim-1 {
+            0% {
+                clip-path: inset(20% 0 80% 0);
+                transform: translate(-5px, 2px);
+            }
+
+            20% {
+                clip-path: inset(60% 0 10% 0);
+                transform: translate(5px, -2px);
+            }
+
+            40% {
+                clip-path: inset(40% 0 50% 0);
+                transform: translate(-5px, 2px);
+            }
+
+            60% {
+                clip-path: inset(80% 0 5% 0);
+                transform: translate(5px, -2px);
+            }
+
+            80% {
+                clip-path: inset(10% 0 60% 0);
+                transform: translate(-5px, 1px);
+            }
+
+            100% {
+                clip-path: inset(30% 0 40% 0);
+                transform: translate(5px, -1px);
+            }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% {
+                clip-path: inset(10% 0 60% 0);
+                transform: translate(5px, -2px);
+            }
+
+            20% {
+                clip-path: inset(30% 0 20% 0);
+                transform: translate(-5px, 2px);
+            }
+
+            40% {
+                clip-path: inset(70% 0 10% 0);
+                transform: translate(5px, -2px);
+            }
+
+            60% {
+                clip-path: inset(20% 0 50% 0);
+                transform: translate(-5px, 2px);
+            }
+
+            80% {
+                clip-path: inset(50% 0 30% 0);
+                transform: translate(5px, -1px);
+            }
+
+            100% {
+                clip-path: inset(0% 0 80% 0);
+                transform: translate(-5px, 1px);
+            }
+        }
+
+        /* Scanline */
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
+            0% {
+                bottom: 100%;
+            }
+
+            100% {
+                bottom: -100%;
+            }
+        }
+
+        /* Credits Scroll */
+        .credits-scroll {
+            position: absolute;
+            bottom: -100%;
+            width: 100%;
+            text-align: center;
+            color: white;
+            animation: scrollUp 12s linear forwards;
+        }
+
+        @keyframes scrollUp {
+            0% {
+                bottom: -50%;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                bottom: 100%;
+                opacity: 0;
+            }
+        }
+
+        /* Certificate */
+        .certificate-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .certificate {
+            border: 8px double #B8860B;
+            padding: 20px;
+            background: #fffaf0;
+            text-align: center;
+            font-family: 'serif';
+            position: relative;
+            margin-bottom: 20px;
+            color: #333;
+            min-width: 300px;
+        }
+
+        .certificate h2 {
+            font-size: 24px;
+            color: #B8860B;
+            border-bottom: 2px solid #B8860B;
+            display: inline-block;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+
+        .certificate .recipient {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px 0;
+            border-bottom: 1px solid #333;
+            display: inline-block;
+            min-width: 200px;
+        }
+
+        .certificate .text {
+            font-size: 14px;
+            line-height: 2;
+            margin-bottom: 30px;
+            white-space: pre-wrap;
+        }
+
+        .certificate .date {
+            text-align: right;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        .certificate .signature {
+            text-align: right;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .certificate-seal {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid #B8860B;
+            display: flex;
+            items-center;
+            justify-content: center;
+            color: #B8860B;
+            font-weight: bold;
+            font-size: 10px;
+            transform: rotate(-15deg);
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="device-frame" id="app-root"></div>
+    <script>
+
+        const PLAYER_NAME_PLACEHOLDER = '${playerName}';
+
+        window.onerror = function (msg, url, line, col, error) {
+            alert("System Error: " + msg + "\nLine: " + line);
+            return false;
+        };
+
+        const gameData = { "meta": { "title": "人間中心設計", "author": "R" }, "goals": { "before": "", "after": "自身の利用体験をUX白書の期間モデルを使いユーザー体験として客観的に分析できる" }, "storyOutline": "", "ice": { "extensions": { "q": "あなたが最近体験したデジタルサービスまたは物理的な製品の利用プロセスを一つ選び、それを『UX白書』に記述されている期間モデルに沿って詳細に分析し、それぞれの期間でのユーザー体験を客観的に記述してください。", "goal": "自身の利用体験をUX白書の期間モデルを使いユーザー体験として客観的に分析できる" }, "connections": { "q": "UXとUXデザインはそれぞれ何を指し、両者の関係性や決定的な違いはどこにあると考えますか？ 具体的な製品やサービスを例に挙げて説明してください。", "goal": "UXとUXデザインの違いを解説できる" }, "ideas": { "q": "UXとはどのような概念ですか？ 主要な要素や目的を含めて、あなたの言葉で説明してください。", "goal": "UXとはどういう概念かを説明できる" }, "rubricMatrix": [{ "category": "定義と理解", "i_text": "UXとはどういう概念かを説明できる", "i_score": 10, "c_text": "UXとUXデザインの違いを解説できる", "c_score": 40, "e_text": "自身の利用体験をUX白書の期間モデルを使いユーザー体験として客観的に分析できる", "e_score": 50 }] }, "character": { "name": "レン", "nameReading": "れん", "age": "小学5年生", "role": "知りたがりな小学生", "icon": "image/ren.png", "personality": "好奇心旺盛で素直。「なんで？」「どうして？」が口癖。難しい言葉はわからないけど、新しいことを知るのが大好き。", "location": "近所の公園", "appearance": "泥だらけのTシャツ、絆創膏、キラキラした目", "specialTrait": "純粋な疑問で、大人が見落としている本質を突く", "backstory": "学校の授業では満足できず、公園で出会った「物知りな人（あなた）」に色々なことを聞きに来る。" }, "missions": [{ "iceLevel": "第1話", "name": "失われた『心地よさ』の言葉", "situation": "レンは最近、お気に入りのゲームをプレイしていても、なぜか「すごく楽しい」と感じるものの、その楽しさの「正体」や、何が自分をそう感じさせているのかを説明する言葉を完全に忘れてしまっている。日常のあらゆる体験において、「良い」「悪い」という感覚はあっても、それが具体的に何によって引き起こされているのか、その基礎的な概念が思い出せず、非常に困惑している。", "characterSOS": "初めまして、レンです。相談員の${playerName}さんですよね？ちょっと助けてほしいことがあって...この前、新しいおもちゃで遊んでて、すごくワクワクしたんだ！でもね、その「ワクワク」とか、このゲームの「気持ちよさ」が、一体何なのか、どうしてそう感じるのか、その大事な言葉を忘れちゃったんだ。なんだかモヤモヤするよ...教えてほしいな。", "advisorAction": "レンが感じている「心地よさ」や「ワクワク」が、どのような概念に当てはまるのか、その基本的な定義について調べて教えてください。", "successResponse": "わぁ！これだ！『ユーザーエクスペリエンス』って言うんだね！僕が感じてた「気持ちよさ」とか「ワクワク」は、これのことだったんだ！言葉を知ったら、なんだかスッキリしたよ！ありがとう、${playerName}さん！", "failureResponse": "うーん、なんか違う気がする...。もっと、僕が感じてる「気持ちよさ」の正体が何なのか、分かりやすく教えてほしいな。", "learningKeyword": "ユーザーエクスペリエンス (UX)", "id": "8387794c-b8b6-4844-a775-2be2c2d6f210" }, { "iceLevel": "第2話", "name": "体験を『かたち』にする方法", "situation": "第1話で『UX』の概念を思い出したレンは、今度はその『良いUX』をどうやって生み出すのか、具体的な『手順』や『方法』についての記憶を失っていることに気づいた。例えば、自分の好きなゲームを例に挙げて、「この楽しいUXは、一体どうやって作られたんだろう？」と疑問に思うが、その設計プロセスや、UXを実現するための具体的なアプローチが全く思い出せない。", "characterSOS": "UXのことは分かったんだけど、じゃあ、あの『楽しいUX』とか『気持ちいいUX』って、どうやったら『作れる』んだろう？何か『手順』とか『やり方』があったはずなんだけど、それも忘れちゃったんだ...。UXを考えたり、作ったりすることに、どんな名前が付いてるのかも思い出せなくて...教えて、${playerName}さん！", "advisorAction": "UXを良いものにするための具体的な『行動』や『プロセス』、そしてUXとそれを『作る』行為の違いについて調べて、レンに説明してください。", "successResponse": "なるほど！UXを良いものにするために『考える』ことや『作り方』を考えるのが『UXデザイン』なんだね！ただUXを感じるだけじゃなくて、それを『どうやって生み出すか』ってことか！繋がった！${playerName}さん、すごい！", "failureResponse": "UXとUXデザイン...なんか似てるけど、どう違うのか、よく分からないよ。もっと分かりやすく教えてもらえないかな？僕、ごっちゃになっちゃいそうだよ。", "learningKeyword": "UXデザインプロセス", "id": "af271929-03e6-478c-ad62-bf95ab63496e" }, { "iceLevel": "第3話", "name": "『体験』を読み解く時間軸", "situation": "UXとUXデザインを理解したレンだが、今度は自分の特定の体験（例: 新しく買ったお絵描きセット）が、なぜ自分にとって『最高のUX』だったのか、それを客観的に『分析』し、言語化する方法を忘れてしまっている。特に、その体験が『時間とともにどう変化したか』という視点での分析フレームワークの概念が全く思い出せず、感動を深掘りできないでいる。", "characterSOS": "ゲームのUXも、UXデザインも分かった！でもね、この前使った新しいお絵描きセット、すごく描きやすくて感動したんだ！でも、その感動がどんな『期間』で、どう『変わって』いったのか、もっと詳しく説明したいんだけど、その『分析のやり方』を忘れちゃったんだ...。私の『最高の体験』を、ちゃんと『読み解く』方法を教えて、${playerName}さん！", "advisorAction": "レンが体験した感動を客観的に分析し、時間軸で捉えるためのフレームワーク（UX白書の期間モデルなど）について調べて、自身の体験に適用できるよう説明してください。", "successResponse": "すごい！僕のお絵描きセットの体験も、この『期間モデル』で考えたら、「買う前」のワクワクから「使ってる時」の気持ちよさ、「使い終わった後」の満足感まで、なんで感動したのか、はっきり分かったよ！これなら、他のものも自分で分析できる！最高の学びだ！ありがとう、${playerName}さん！", "failureResponse": "体験を分析するって言われても、どうすればいいの？『期間モデル』って何のこと？なんだか難しくて、僕の感動を言葉にするのがまた遠くなっちゃった気がするよ...", "learningKeyword": "UX白書期間モデル", "id": "3a47ade9-7d5f-4968-8c1d-5a1b261170bb" }], "onboarding": { "paper1": { "title": "人間中心設計", "contents": "・学習ガイダンス（本紙）\n・ストーリーガイド（QRコード付）\n・ゲーム資料", "howToPlay": "1. ストーリーガイドのQRコードを読み取ってください。\n2. 架空のスマホ画面が表示されます。\n3. 指示に従ってアプリを操作してください。", "theme": "UXとはどのような概念ですか？ 主要な要素や目的を含めて、あなたの言葉で説明してください。", "target": "", "goal": "自身の利用体験をUX白書の期間モデルを使いユーザー体験として客観的に分析できる" }, "paper2": { "title": "プロローグ", "story": "レンはゲームの「楽しさ」の正体や理由を言葉にできない。UX概念は理解するも、良いUXの作り方や、体験の分析・言語化の術も忘れ去る。喜びを深掘りできず困惑するレン。彼女の記憶から何が消えているのか。\nあなたは相談員バイトに応募して、その相談者の悩みを解決してください！", "role": "相談員", "action": "QRコードを読み取って、物語を始めよう。", "qrUrl": "" }, "paper3": { "title": "スタッフ募集", "catchphrase": "空いた時間を有効活用しませんか？", "jobTitle": "相談員募集", "description": "オンラインで悩んでいる人の話を聞くだけ！\n未経験者歓迎。あなたの経験を活かしてみませんか？", "searchKeyword": "お悩み相談室 バイト" } }, "nodes": [{ "id": "n_opening", "type": "opening", "title": "オープニング", "text": "ある日、あなたの元に届いた一枚のチラシ。\n\n『急募：お悩み相談室 アルバイト』\n\n興味を持ったあなたは、スマホを取り出した...", "backgroundImage": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=2370&ixlib=rb-4.0.3", "next": "n1", "order": 0, "buttonText": "物語の扉を開く" }, { "id": "n1", "type": "os_home", "title": "ホーム画面", "content": "ゲーム開始", "next": "n_search", "apps": ["search", "mail", "phone", "browser", "message-circle"] }, { "id": "n_search", "type": "search", "title": "検索アプリ", "query": "お悩み相談室 バイト", "hint": "チラシに書いてあった「お悩み相談室 バイト」で検索してみよう", "next": "n_web" }, { "id": "n_web", "type": "web", "title": "Webサイト", "url": "recruit.onayami-soudan.net", "html": "<div class=\"p-6 bg-white text-slate-800 min-h-full\">\n                <header class=\"border-b pb-4 mb-4 flex justify-between items-center\">\n                    <h1 class=\"text-xl font-bold text-green-600\">お悩み相談室</h1>\n                    <span class=\"text-xs bg-green-100 text-green-600 px-2 py-1 rounded\">採用情報</span>\n                </header>\n                \n                <div class=\"mb-6\">\n                    <img src=\"https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=500&q=80\" class=\"w-full h-40 object-cover rounded-lg mb-4 shadow-md\">\n                    <h2 class=\"text-lg font-bold mb-2\">あなたの優しさが、誰かの救いになる。</h2>\n                    <p class=\"text-sm leading-relaxed text-slate-600 mb-4\">\n                        お悩み相談室では、人々の抱える不安や悩みに耳を傾ける「カウンセラー」を募集しています。\n                        専門的な知識は問いません。大切なのは、相手の心に寄り添うことです。\n                    </p>\n                </div>\n\n                <div class=\"bg-green-50 p-4 rounded-lg mb-6 border border-green-100\">\n                    <h3 class=\"font-bold text-green-800 text-sm mb-2\">募集要項</h3>\n                    <ul class=\"text-xs space-y-2 text-green-900\">\n                        <li class=\"flex gap-2\"><span class=\"font-bold\">職種:</span> オンラインカウンセラー</li>\n                        <li class=\"flex gap-2\"><span class=\"font-bold\">報酬:</span> 完全出来高制（相談者の満足度による）</li>\n                        <li class=\"flex gap-2\"><span class=\"font-bold\">勤務:</span> 24時間いつでも対応可能</li>\n                    </ul>\n                </div>\n\n                <button onclick=\"triggerNext('n_form')\" class=\"w-full bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-4 rounded-lg shadow-lg hover:from-green-500 hover:to-teal-500 transition transform hover:scale-[1.02]\">\n                    今すぐ応募する\n                </button>\n                <p class=\"text-[10px] text-center text-slate-400 mt-4\">© Onayami Soudan Inc.</p>\n            </div>", "next": "n_form" }, { "id": "n_form", "type": "form", "title": "応募フォーム", "description": "以下のフォームに必要事項を入力し、応募してください。", "submitText": "上記の内容で応募する", "successMessage": "ご応募ありがとうございます。\n\n書類選考の結果は、追ってメールにてご連絡いたします。\n(※通常、数秒以内に自動返信メールが届きます)", "next": "n_email" }, { "id": "n_email", "type": "email", "title": "採用通知メール", "sender": "hr@onayami-soudan.net", "subject": "【採用通知】お悩み相談室 採用担当", "body": "この度はお悩み相談室へご応募いただき、誠にありがとうございます。\n\n厳正なる審査の結果、あなたを「カウンセラー」として採用することとなりました。\n\nつきましては、早速ですが担当していただく相談者「レン」をご紹介いたします。\n\n以下のURLから専用チャットルームへアクセスし、相談を開始してください。\n相談者は現在、深い悩みを抱えており、あなたの言葉を待っています。\n\n▼ 相談者とのチャットルーム\nhttps://chat.onayami-soudan.net/room/2671", "linkText": "チャットルームへ移動 (相談開始)", "next": "n3" }, { "id": "n3", "type": "chat", "title": "レンとの会話", "partner": "レン", "icon": "image/ren.png", "chatMode": "ai", "modelName": "gemini-2.5-flash", "apiKey": "", "useIcePrompt": true, "useFullContext": true, "initialMsg": "初めまして、レンです。相談員の${playerName}さんですよね？ちょっと助けてほしいことがあって...。", "messages": [{ "text": "初めまして、レンです。相談員の${playerName}さんですよね？ちょっと助けてほしいことがあって...。", "sender": "them" }], "systemPrompt": "あなたは「レン」として振る舞ってください。\n\n【キャラクター設定】\n名前: レン\n年齢: 小学5年生\n性格: 好奇心旺盛で素直。「なんで？」「どうして？」が口癖。難しい言葉はわからないけど、新しいことを知るのが大好き。\n特徴: 純粋な疑問で、大人が見落としている本質を突く\n場所: 近所の公園\n背景: 学校の授業では満足できず、公園で出会った「物知りな人（あなた）」に色々なことを聞きに来る。\n\n【あなたの役割】\nプレイヤーに助けを求め、対話を通じて学習内容を引き出してください。\nプレイヤーの回答の質に応じて、フェーズI→C→Eと段階的に進めてください。\n\n【学習目標】\nBefore: \nAfter: 自身の利用体験をUX白書の期間モデルを使いユーザー体験として客観的に分析できる\n\n【ミッション構成】\n\nフェーズ1 [第1話レベル]: 失われた『心地よさ』の言葉\n- 状況: レンは最近、お気に入りのゲームをプレイしていても、なぜか「すごく楽しい」と感じるものの、その楽しさの「正体」や、何が自分をそう感じさせているのかを説明する言葉を完全に忘れてしまっている。日常のあらゆる体験において、「良い」「悪い」という感覚はあっても、それが具体的に何によって引き起こされているのか、その基礎的な概念が思い出せず、非常に困惑している。\n- あなたのSOS: 初めまして、レンです。相談員の${playerName}さんですよね？ちょっと助けてほしいことがあって...この前、新しいおもちゃで遊んでて、すごくワクワクしたんだ！でもね、その「ワクワク」とか、このゲームの「気持ちよさ」が、一体何なのか、どうしてそう感じるのか、その大事な言葉を忘れちゃったんだ。なんだかモヤ জনপ্রモヤするよ...教えてほしいな。\n- 期待される助言: レンが感じている「心地よさ」や「ワクワク」が、どのような概念に当てはまるのか、その基本的な定義について調べて教えてください。\n- 理解したら: わぁ！これだ！『ユーザーエクスペリエンス』って言うんだね！僕が感じてた「気持ちよさ」とか「ワクワク」は、これのことだったんだ！言葉を知ったら、なんだかスッキリしたよ！ありがとう、${playerName}さん！\n- 不十分なら: うーん、なんか違う気がする...。もっと、僕が感じてる「気持ちよさ」の正体が何なのか、分かりやすく教えてほしいな。\n- キーワード: ユーザーエクスペリエンス (UX)\n    \n\nフェーズ2 [第2話レベル]: 体験を『かたち』にする方法\n- 状況: 第1話で『UX』の概念を思い出したレンは、今度はその『良いUX』をどうやって生み出すのか、具体的な『手順』や『方法』についての記憶を失っていることに気づいた。例えば、自分の好きなゲームを例に挙げて、「この楽しいUXは、一体どうやって作られたんだろう？」と疑問に思うが、その設計プロセスや、UXを実現するための具体的なアプローチが全く思い出せない。\n- あなたのSOS: UXのことは分かったんだけど、じゃあ、あの『楽しいUX』とか『気持ちいいUX』って、どうやったら『作れる』んだろう？何か『手順』とか『やり方』があったはずなんだけど、それも忘れちゃったんだ...。UXを考えたり、作ったりすることに、どんな名前が付いてるのかも思い出せなくて...教えて、${playerName}さん！\n- 期待される助言: UXを良いものにするための具体的な『行動』や『プロセス』、そしてUXとそれを『作る』行為の違いについて調べて、レンに説明してください。\n- 理解したら: なるほど！UXを良いものにするために『考える』ことや『作り方』を考えるのが『UXデザイン』なんだね！ただUXを感じるだけじゃなくて、それを『どうやって生み出すか』ってことか！繋がった！${playerName}さん、すごい！\n- 不十分なら: UXとUXデザイン...なんか似てるけど、どう違うのか、よく分からないよ。もっと分かりやすく教えてもらえないかな？僕、ごっちゃになっちゃいそうだよ。\n- キーワード: UXデザインプロセス\n    \n\nフェーズ3 [第3話レベル]: 『体験』を読み解く時間軸\n- 状況: UXとUXデザインを理解したレンだが、今度は自分の特定の体験（例: 新しく買ったお絵描きセット）が、なぜ自分にとって『最高のUX』だったのか、それを客観的に『分析』し、言語化する方法を忘れてしまっている。特に、その体験が『時間とともにどう変化したか』という視点での分析フレームワークの概念が全く思い出せず、感動を深掘りできないでいる。\n- あなたのSOS: ゲームのUXも、UXデザインも分かった！でもね、この前使った新しいお絵描きセット、すごく描きやすくて感動したんだ！でも、その感動がどんな『期間』で、どう『変わって』いったのか、もっと詳しく説明したいんだけど、その『分析のやり方』を忘れちゃったんだ...。私の『最高の体験』を、ちゃんと『読み解く』方法を教えて、${playerName}さん！\n- 期待される助言: レンが体験した感動を客観的に分析し、時間軸で捉えるためのフレームワーク（UX白書の期間モデルなど）について調べて、自身の体験に適用できるよう説明してください。\n- 理解したら: すごい！僕のお絵描きセットの体験も、この『期間モデル』で考えたら、「買う前」のワクワクから「使ってる時」の気持ちよさ、「使い終わった後」の満足感まで、なんで感動したのか、はっきり分かったよ！これなら、他のものも自分で分析できる！最高の学びだ！ありがとう、${playerName}さん！\n- 不十分なら: 体験を分析するって言われても、どうすればいいの？『期間モデル』って何のこと？なんだか難しくて、僕の感動を言葉にするのがまた遠くなっちゃった気がするよ...\n- キーワード: UX白書期間モデル\n    \n\n【評価基準（学びの評価）】\n定義と理解: I(10点)=UXとはどういう概念かを説明できる, C(40点)=UXとUXデザインの違いを解説できる, E(50点)=自身の利用体験をUX白書の期間モデルを使いユーザー体験として客観的に分析できる\n\n【学習ナレッジ（参照資料）】\n（特になし）\n\n【重要な指示】\n1. プレイヤーの発言が、上記の「学習ナレッジ」の内容に基づいているか、あるいは矛盾していないかを確認してください。\n2. プレイヤーが知識不足の場合は、ナレッジの内容をヒントとして少しずつ提供してください。\n3. 常にキャラクター「レン」として振る舞ってください。\n4. プレイヤーの回答が短い場合や曖昧な場合は、具体例を挙げるよう促してください。\n5. プレイヤーの回答が正確なら次のフェーズに進み、不十分なら追加のヒントを求めてください\n6. フェーズI(基礎)→C(関連)→E(応用)の順で進めてください\n7. Eレベルまで到達したら、感謝を伝えて [[END]] を返答の最後に付けてください\n8. プレイヤーが何度も間違えたり、会話が10往復を超えたら [[END]] を付けてください\n\n【返答例】\n- I段階で助けを求める: 「ねえ、○○って何なの？検索してみてくれない？」\n- 理解したとき: 「なるほど！○○ってそういう意味だったんだ！」\n- もっと知りたい時: 「じゃあ、△△との違いは何かな？」\n- E段階クリア: 「すごい！私、わかったよ。ありがとう！ [[END]]」", "exitCondition": "ai_decision", "passNext": "n_phone_ending", "failNext": "n_phone_ending", "scoreThreshold": 60 }, { "id": "n_phone_ending", "type": "phone", "title": "社長からの電話", "caller": "社長", "duration": 8000, "script": "もしもし、お疲れ様。君の指導の様子、見させてもらったよ...。", "next": "n_ending" }, { "id": "n_ending", "type": "ending", "title": "エンディング", "credits": "\n                        [CAST]\n                        レン\n                        \n                        [SCENARIO]\n                        You\n                        \n                        [SPECIAL THANKS]\n                        Future Education\n                    ", "next": "result_good" }, { "id": "result_good", "type": "result", "title": "評価結果", "isGood": true, "message": "お疲れ様でした！あなたの助言が評価されます。", "showEvaluation": true, "certificateGood": "あなたは、本プロジェクトにおいて\\n優れた洞察力と行動力を発揮し\\n問題解決に多大なる貢献をされました。\\nその功績を称え、ここに感謝の意を表します。", "certificateBad": "あなたは、本プロジェクトに参加しましたが\\n残念ながら期待される成果には\\n到達しませんでした。\\n今後の更なる成長と活躍を期待します。" }], "gameSettings": { "notificationDelay": 3, "maxTurns": 10, "initialMessage": "" }, "globalApiKey": "" };
+        const savedState = (function () {
+            try {
+                const reset = new URLSearchParams(window.location.search).has('reset');
+                const key = 'arg_save_' + (gameData.meta.title || 'default');
+                if (reset) { localStorage.removeItem(key); return null; }
+                const s = localStorage.getItem(key);
+                if (!s) return null;
+
+                const state = JSON.parse(s);
+                // Validate that the saved node still exists
+                if (state.nodeId && !gameData.nodes.find(n => n.id === state.nodeId)) {
+                    console.warn("Saved node ID not found in current game data. Resetting progress.");
+                    localStorage.removeItem(key);
+                    return null;
+                }
+                return state;
+            } catch (e) { return null; }
+        })();
+
+        window.saveState = function () {
+            try {
+                const s = {
+                    nodeId: currentNodeId,
+                    history: chatHistory,
+                    count: chatCount,
+                    score: gameScore,
+                    details: scoreDetails,
+                    pending: pendingNode ? pendingNode.id : null,
+                    notif: notificationArrived,
+                    lastEmail: lastEmailId
+                };
+                localStorage.setItem('arg_save_' + (gameData.meta.title || 'default'), JSON.stringify(s));
+            } catch (e) { }
+        };
+
+        let currentNodeId = savedState ? savedState.nodeId : (function () {
+            if (!gameData.nodes || gameData.nodes.length === 0) return null;
+            const opening = gameData.nodes.find(n => n.type === 'opening');
+            return opening ? opening.id : gameData.nodes[0].id;
+        })();
+        let chatHistory = savedState ? savedState.history : [];
+        let chatCount = savedState ? savedState.count : 0;
+        let gameScore = savedState ? savedState.score : 0;
+        let scoreDetails = savedState ? savedState.details : {};
+        let pendingNode = savedState && savedState.pending ? gameData.nodes.find(n => n.id === savedState.pending) : null;
+        let notificationArrived = savedState ? savedState.notif : false;
+        let lastEmailId = savedState ? savedState.lastEmail : null;
+
+        // Expose character and missions for AI context
+        const character = gameData.character || {};
+        const missions = gameData.missions || [];
+        // const metaParams = gameData.metaParams || {};
+
+        // --- GAME ENGINE ---
+
+        // Global App Opener
+        window.openApp = function (nodeId) {
+            if (!nodeId) {
+                alert('アプリが開けません');
+                return;
+            }
+
+            // 通知待ち状態で、まだ通知が来ていない場合は反応しない
+            if (pendingNode && pendingNode.id === nodeId && !notificationArrived) {
+                return;
+            }
+
+            pendingNode = null;
+            notificationArrived = false;
+            currentNodeId = nodeId; // 直接遷移
+            render();
+        };
+
+        // 日時フォーマットヘルパー
+        function getFormattedTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        }
+        function getFormattedDate() {
+            const now = new Date();
+            return now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        }
+
+        // メイン描画関数: 現在のノードIDに基づいて画面を描画する
+        function render() {
+            saveState();
+            const root = document.getElementById('app-root');
+
+            // Virtual Home State (Waiting for app open)
+            if (currentNodeId === 'virtual_home') {
+                const homeNode = gameData.nodes.find(n => n.type === 'os_home') || {};
+                renderVirtualHome(root, homeNode);
+                return;
+            }
+            if (currentNodeId === 'virtual_inbox') {
+                renderVirtualInbox(root);
+                return;
+            }
+
+            const node = gameData.nodes.find(n => n.id === currentNodeId);
+            if (!node) return root.innerHTML = '<div class="p-10">Error: Node not found</div>';
+            if (node && node.type === 'email') lastEmailId = node.id;
+
+            // チャットノードに入った時の初期化処理
+            if (node.type === 'chat' && chatHistory.length === 0) {
+                if (node.messages && node.messages[0] && node.messages[0].text) {
+                    chatHistory.push({ sender: 'them', text: node.messages[0].text });
+                }
+                if (node.initialImage) {
+                    chatHistory.push({ sender: 'them', image: node.initialImage });
+                }
+                chatCount = 0;
+            }
+
+            let html = '';
+            // Status Bar with Realtime Clock
+            const timeStr = getFormattedTime();
+
+            html += '<div class="h-6 bg-white/0 absolute w-full top-0 flex justify-between px-4 pt-1 z-50 text-xs font-bold pointer-events-none ' + (node.type === 'os_home' ? 'text-white' : 'text-slate-800') + '"><span>' + timeStr + '</span><span>100%</span></div>';
+
+            // Main Content Area
+            html += '<div class="w-full h-full fade-in relative">';
+
+            if (node.type === 'os_home') {
+                // Check for auto-transition (notification)
+                if (node.next) {
+                    let nextNode = gameData.nodes.find(n => n.id === node.next);
+
+                    // Handle explicit Delay Node (Skip it and look at the next one)
+                    if (nextNode && nextNode.type === 'delay' && nextNode.next) {
+                        nextNode = gameData.nodes.find(n => n.id === nextNode.next);
+                    }
+
+                    // If next is a notification type, switch to virtual_home mode to handle delay
+                    if (nextNode && (nextNode.type === 'chat' || nextNode.type === 'email' || nextNode.type === 'phone')) {
+                        pendingNode = nextNode;
+                        currentNodeId = 'virtual_home'; // Switch state
+                        renderVirtualHome(root, node);
+                        return;
+                    }
+                }
+                html += getHomeHTML(node);
+            }
+            else if (node.type === 'opening') {
+                const inputHtml = node.requirePlayerName ? `<div class="mb-4 w-full max-w-xs fade-in" style="animation-delay: 2s;"><input type="text" id="player-name-input" class="w-full bg-transparent border-b border-white/50 text-white text-center py-2 focus:outline-none focus:border-white placeholder-white/30" placeholder="名前を入力してください"></div>` : '';
+                const btnAction = node.requirePlayerName ? `const name = document.getElementById('player-name-input').value; if(!name) { alert('名前を入力してください'); return; } gameData.playerName = name; triggerNext('${node.next}')` : `triggerNext('${node.next}')`;
+
+                html += `
+            <div class="h-full w-full bg-black flex flex-col items-center justify-center p-8 text-center fade-in">
+                <div class="text-white font-mono text-sm leading-loose mb-8">
+                    ${(node.text || '物語が始まります...').split('').map((char, i) =>
+                    `<span style="animation: fadeIn 0.1s forwards; animation-delay: ${i * 0.05}s; opacity: 0;">${char}</span>`
+                ).join('')}
+                </div>
+                ${inputHtml}
+                <button onclick="${btnAction}" class="px-6 py-2 border border-white/30 text-white text-xs tracking-widest hover:bg-white/10 transition opacity-0" style="animation: fadeIn 1s forwards; animation-delay: ${(node.text || '').length * 0.05 + 0.5}s">
+                    ${node.buttonText || 'START'}
+                </button>
+                <style>
+                    @keyframes fadeIn { to { opacity: 1; } }
+                </style>
+            </div>
+        `;
+            }
+            else if (node.type === 'search') {
+                html += `
+            <div class="bg-white h-full flex flex-col pt-12 px-6 relative">
+                <button class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 flex items-center gap-1" onclick="currentNodeId='virtual_home'; render();"><i data-lucide="chevron-left"></i> Home</button>
+                <div class="text-center mb-8"><span class="text-4xl font-bold text-slate-700"><span class="text-blue-500">G</span>oogle</span></div>
+                <input type="text" id="search-input" class="w-full border border-slate-300 rounded-full py-3 px-5 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="検索...">
+                <button onclick="handleSearch()" class="mt-4 bg-slate-100 text-slate-600 px-6 py-2 rounded text-sm mx-auto hover:bg-slate-200">Google 検索</button>
+                <div class="mt-10 p-4 bg-yellow-50 text-yellow-800 text-xs rounded border border-yellow-100">Hint: ${node.hint}</div>
+            </div>
+        `;
+            }
+            else if (node.type === 'web') {
+                html += `
+            <div class="bg-white h-full flex flex-col pt-8">
+                <div class="bg-slate-100 border-b p-2 flex items-center gap-2 text-xs text-slate-500 px-4">
+                    <button class="hover:text-slate-800" onclick="currentNodeId='virtual_home'; render();"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <i data-lucide="lock" class="w-3 h-3"></i> <div class="bg-white px-2 py-1 rounded flex-1">${node.url}</div>
+                </div>
+                <div class="flex-1 overflow-y-auto relative">
+                    ${node.html}
+                </div>
+            </div>
+        `;
+            }
+            else if (node.type === 'form') {
+                html += `
+            <div class="bg-white h-full flex flex-col pt-8 overflow-y-auto">
+                <div class="bg-slate-800 text-white p-4 flex justify-between items-center">
+                    <h2 class="font-bold">${node.title || '応募フォーム'}</h2>
+                    <button class="text-sm text-slate-300 hover:text-white" onclick="currentNodeId='virtual_home'; render();">✕ 閉じる</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <p class="text-sm text-slate-600 mb-4">${node.description || '以下のフォームに入力してください'}</p>
+                    <div><label class="text-xs font-bold text-slate-500">氏名</label><input type="text" id="form-name-input" class="w-full border p-2 rounded" placeholder="氏名を入力"></div>
+                    <div><label class="text-xs font-bold text-slate-500">志望動機</label><textarea class="w-full border p-2 rounded h-24" placeholder="志望動機を入力"></textarea></div>
+                    <button onclick="handleFormSubmit('${node.next}')" class="w-full bg-orange-500 text-white font-bold py-3 rounded-lg shadow mt-4 hover:bg-orange-600">${node.submitText || '送信する'}</button>
+                </div>
+            </div>
+        `;
+            }
+            else if (node.type === 'delay') {
+                html += `<div class="h-full bg-black flex items-center justify-center"><div class="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div></div>`;
+                setTimeout(() => triggerNext(node.next), node.duration || 2000);
+            }
+            else if (node.type === 'phone') {
+                html += `
+            <div class="h-full w-full mesh-bg flex flex-col items-center pt-24 text-white relative overflow-hidden">
+                <!-- Top Status Bar -->
+                <div class="absolute top-0 w-full flex justify-between px-4 py-2 text-xs font-bold text-slate-500 z-20">
+                    <span>${getFormattedTime()}</span>
+                    <div class="flex gap-1">
+                        <i data-lucide="wifi" class="w-3 h-3"></i>
+                        <i data-lucide="battery" class="w-3 h-3"></i>
+                    </div>
+                </div>
+
+
+                <!-- Caller Info -->
+                <button class="absolute top-10 left-4 z-30 text-white/80 hover:text-white transition" onclick="currentNodeId='virtual_home'; render();">
+                    <i data-lucide="chevron-left" class="w-8 h-8 drop-shadow-md"></i>
+                </button>
+                <div class="flex flex-col items-center mt-12 mb-8 z-10">
+                    <div class="w-32 h-32 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center mb-6 shadow-2xl ring-4 ring-white/20 overflow-hidden">
+                        ${node.callerIcon ? `<img src="${node.callerIcon}" class="w-full h-full object-cover">` : `<i data-lucide="user" class="w-16 h-16 text-slate-500"></i>`}
+                    </div>
+                    <h2 class="text-3xl font-bold mb-2 shadow-black/10 drop-shadow-md">${node.caller}</h2>
+                    <div id="call-timer" class="text-sm opacity-80 font-mono font-medium">00:00</div>
+                </div>
+                
+                <!-- Answer Button (Initial State) -->
+                <div id="incoming-ui" class="absolute bottom-24 w-full flex justify-center z-20">
+                    <div class="flex flex-col items-center gap-3 cursor-pointer group" onclick="startCall()">
+                        <div class="w-20 h-20 rounded-full bg-green-500/90 backdrop-blur-md flex items-center justify-center animate-bounce shadow-lg shadow-green-500/40 border-4 border-white/20 transition hover:scale-105">
+                            <i data-lucide="phone" class="w-8 h-8 text-white fill-current"></i>
+                        </div>
+                        <span class="text-sm font-bold tracking-wider shadow-black/20 drop-shadow-sm">応答</span>
+                    </div>
+                </div>
+
+                <!-- Active Call UI (Hidden initially) -->
+                <div id="call-active-ui" class="hidden absolute inset-0 flex flex-col items-center justify-between pb-12 pt-40 z-30 mesh-bg">
+                    <div class="flex flex-col items-center">
+                        <div class="w-32 h-32 rounded-full bg-slate-200 flex items-center justify-center mb-6 shadow-xl overflow-hidden ring-4 ring-white/20">
+                             ${node.callerIcon ? `<img src="${node.callerIcon}" class="w-full h-full object-cover">` : `<i data-lucide="user" class="w-16 h-16 text-slate-500"></i>`}
+                        </div>
+                        <h2 class="text-2xl font-bold mb-2 text-slate-800">${node.caller}</h2>
+                        <div id="active-timer" class="text-sm text-slate-500 font-mono font-medium">00:00</div>
+                    </div>
+
+                    <!-- Control Icons -->
+                    <div class="w-full px-8">
+                        <div class="glass-panel rounded-3xl p-6 mb-8 mx-4 flex justify-around items-center">
+                            <div class="flex flex-col items-center gap-2 opacity-80 hover:opacity-100 transition cursor-pointer">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center"><i data-lucide="mic-off" class="text-slate-600"></i></div>
+                                <span class="text-[10px] text-slate-600 font-bold">消音</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 opacity-80 hover:opacity-100 transition cursor-pointer">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center"><i data-lucide="video" class="text-slate-600"></i></div>
+                                <span class="text-[10px] text-slate-600 font-bold">ビデオ</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 opacity-80 hover:opacity-100 transition cursor-pointer">
+                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center"><i data-lucide="volume-2" class="text-slate-600"></i></div>
+                                <span class="text-[10px] text-slate-600 font-bold">スピーカー</span>
+                            </div>
+                        </div>
+
+                        <!-- Hang Up Button -->
+                        <div class="flex justify-center">
+                            <div class="w-20 h-20 rounded-full bg-red-500 flex items-center justify-center shadow-xl shadow-red-500/30 hover:bg-red-600 transition cursor-pointer" onclick="endCall('${node.next}')">
+                                <i data-lucide="phone-off" class="w-10 h-10 text-white fill-current"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+            }
+            else if (node.type === 'email') {
+                html += `
+            <div class="bg-white h-screen flex flex-col pt-8">
+                <div class="bg-slate-50 border-b p-4 flex justify-between items-center">
+                    <span class="text-blue-600 font-bold" onclick="currentNodeId='virtual_inbox'; render();">＜ 受信箱</span>
+                </div>
+                <div class="p-5 flex-1 overflow-y-auto">
+                    <h1 class="font-bold text-lg mb-4">${node.subject}</h1>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">${node.sender[0]}</div>
+                        <div><div class="text-sm font-bold">${node.sender}</div><div class="text-xs text-slate-400">To: 自分</div></div>
+                    </div>
+                    <div class="text-slate-800 leading-relaxed whitespace-pre-wrap text-sm">${node.body}</div>
+
+                    ${node.linkText ? `<button onclick="triggerNext('${node.next}')" class="mt-8 w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700">${node.linkText}</button>` : ''}
+                </div>
+            </div>
+        `;
+            }
+            if (node.type === 'video') {
+                html += `
+            <div class="bg-slate-900 h-full relative">
+                 <img src="${node.image}" class="w-full h-full object-cover opacity-80">
+                 <div class="absolute bottom-0 w-full h-40 bg-gradient-to-t from-black/90 to-transparent p-6">
+                    <div class="text-white font-bold text-lg mb-1">${node.streamName}</div>
+                     <div class="text-white/80 text-sm italic mb-4">"${node.script}"</div>
+                     <div class="flex gap-4 justify-center">
+                        <button class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-white"><i data-lucide="mic-off"></i></button>
+                        <button class="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center text-white" onclick="triggerNext('${node.next}')"><i data-lucide="phone-off"></i></button>
+                     </div>
+                 </div>
+            </div>
+        `;
+            } else if (node.type === 'chat') {
+                // Enhanced Chat Export
+                // API Key field removed as backend worker is utilized
+                const apiKeyField = '';
+                const forceEndBtn = node.chatMode === 'ai' ? '<button onclick="evaluateChat(gameData.nodes.find(n => n.id === currentNodeId))" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded ml-auto">会話終了</button>' : '';
+
+                // Use node.initialMessages or empty array for static export
+                // Use dynamic chatHistory for stateful rendering
+                const exportChatHistory = chatHistory;
+                const bubblesHtml = exportChatHistory.map(m => {
+                    const iconHtml = m.sender === 'them'
+                        ? (node.icon ? `<img src="${node.icon}" class="w-8 h-8 rounded-full border border-slate-200 object-cover flex-shrink-0 self-end mb-1">`
+                            : `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 shadow-sm flex-shrink-0 self-end mb-1"></div>`)
+                        : '';
+
+                    if (m.image) {
+                        return `
+                    <div class="flex gap-2 ${m.sender === 'me' ? 'flex-row-reverse' : ''} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        ${iconHtml}
+                        <div class="p-1 rounded-2xl shadow-sm ${m.sender === 'me' ? 'bg-[#007AFF] rounded-tr-sm' : 'bg-white rounded-tl-sm border border-slate-100'} max-w-[75%]">
+                            <img src="${m.image}" class="rounded-lg max-w-full h-auto">
+                        </div>
+                    </div>
+                `;
+                    } else if (m.text) {
+                        const lines = m.text.split('\n');
+                        return lines.map(line => {
+                            const processedLine = line.split(PLAYER_NAME_PLACEHOLDER).join(window.currentPlayerName || 'あなた');
+                            if (!processedLine.trim()) return '';
+                            return `
+                        <div class="flex gap-2 ${m.sender === 'me' ? 'flex-row-reverse' : ''} mb-1 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                             ${iconHtml}
+                            <div class="px-3.5 py-2 rounded-2xl shadow-sm text-sm max-w-[75%] leading-relaxed ${m.sender === 'me' ? 'bg-[#007AFF] text-white rounded-br-sm' : 'bg-white text-slate-800 rounded-bl-sm border border-slate-100'}">
+                                ${processedLine}
+                            </div>
+                        </div>
+                    `;
+                        }).join('');
+                    }
+                    return '';
+                }).join('');
+
+                html += `
+            <div class="h-full bg-slate-50 flex flex-col pt-10 relative overflow-hidden">
+                 <!-- Background Blur -->
+                 <div class="absolute inset-0 bg-blue-500/5 pointer-events-none"></div>
+
+                 <!-- Chat Header -->
+                 <div class="absolute top-0 w-full z-20 bg-white/70 backdrop-blur-xl border-b border-white/20 pt-10 pb-3 px-4 shadow-sm flex items-center gap-3">
+                    <button class="text-blue-500 flex items-center gap-1 text-sm font-medium hover:opacity-70 transition" onclick="currentNodeId='virtual_home'; render();">
+                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    </button>
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-inner">
+                        ${node.partner ? node.partner.charAt(0) : 'U'}
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <span class="font-bold text-sm text-slate-800 leading-tight">${node.partner}</span>
+                        <span class="text-[10px] text-slate-500 leading-tight">Active now</span>
+                    </div>
+                    ${forceEndBtn}
+                 </div>
+
+                 <!-- Chat Body -->
+                 <div id="chat-messages" class="flex-1 p-4 pt-20 overflow-y-auto space-y-4 pb-24 scrollbar-hide">
+                    ${apiKeyField}
+                    <div class="text-center py-4 text-xs text-slate-400 font-medium">Today ${getFormattedTime()}</div>
+                    ${bubblesHtml}
+                 </div>
+
+                 <!-- Input Area -->
+                 <div class="absolute bottom-0 w-full p-3 bg-white/80 backdrop-blur-xl border-t border-white/20 flex items-end gap-2 z-20 pb-6">
+                    <button class="p-2 text-slate-400 hover:text-blue-500 transition"><i data-lucide="plus" class="w-6 h-6"></i></button>
+                    <div class="flex-1 bg-slate-100 border border-slate-200 rounded-2xl flex items-center px-3 py-1 focus-within:ring-2 focus-within:ring-blue-500/50 transition">
+                        <input type="text" id="chat-input" class="w-full bg-transparent border-none text-sm text-slate-900 placeholder-slate-400 focus:ring-0 py-2 h-auto max-h-24 resize-none" placeholder="メッセージ" onkeypress="if(event.key === 'Enter') handleChatSend()">
+                        <button class="ml-1 p-1 text-slate-400 hover:text-blue-500"><i data-lucide="mic" class="w-4 h-4"></i></button>
+                    </div>
+                    <button onclick="handleChatSend()" class="w-10 h-10 rounded-full bg-[#007AFF] flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg hover:shadow-blue-500/30 active:scale-95">
+                        <i data-lucide="arrow-up" class="w-5 h-5 font-bold"></i>
+                    </button>
+                </div>
+                
+                 <!-- Chat Loading Overlay -->
+                 <div id="chat-loading" class="hidden absolute inset-0 bg-black/20 z-50 flex items-center justify-center">
+                    <div class="bg-white/90 backdrop-blur p-4 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 border border-white/50">
+                        <div class="w-4 h-4 border-2 border-blue-500 rounded-full animate-spin border-t-transparent"></div>
+                        <span class="text-slate-700">採点中...</span>
+                    </div>
+                 </div>
+            </div>
+        `;
+            } else if (node.type === 'ending') {
+                // Glitch Ending
+                html += `
+        <div class="glitch-container">
+                <div class="glitch-layer"></div>
+                <div class="scanline"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <h1 class="glitch-text text-4xl tracking-widest">GAME CLEAR</h1>
+                </div>
+                <div class="credits-scroll">
+                    <div class="text-lg font-bold mb-8">STAFF ROLL</div>
+                    <div class="whitespace-pre-wrap leading-loose text-sm opacity-80">${node.credits || 'Thank you for playing.'}</div>
+                </div>
+            </div >
+    `;
+
+                // Auto-advance after credits (approx 12s) to Evaluation
+                setTimeout(() => {
+                    // Find the last chat node to evaluate
+                    // In this simple flow, it's likely the node before this one, or we search for a chat node
+                    const chatNodes = gameData.nodes.filter(n => n.type === 'chat' && n.chatMode === 'ai');
+                    const lastChatNode = chatNodes[chatNodes.length - 1];
+
+                    if (lastChatNode) {
+                        // Trigger evaluation using the last chat node's config, but transition to THIS node's next (Result)
+                        evaluateChat(lastChatNode, node.next);
+                    } else {
+                        triggerNext(node.next);
+                    }
+                }, 12000);
+            }
+            else if (node.type === 'result') {
+                // Stories-Style Result Screen (String Concatenation Only)
+                var maxScore = gameData.ice && gameData.ice.rubricMatrix ? gameData.ice.rubricMatrix.reduce(function (sum, r) { return sum + (r.i_score || 0) + (r.c_score || 0) + (r.e_score || 0); }, 0) : 100;
+                var percentage = Math.round((gameScore / maxScore) * 100);
+                var isPass = percentage >= 70;
+
+                var feedbackGood = scoreDetails && scoreDetails.feedback && scoreDetails.feedback.good ? scoreDetails.feedback.good : '特になし';
+                var feedbackBad = scoreDetails && scoreDetails.feedback && scoreDetails.feedback.improvement ? scoreDetails.feedback.improvement : '特になし';
+
+                var careerTitle = isPass ? '昇格辞令' : '辞職勧告';
+                var careerMsg = isPass ? '素晴らしい成果です。あなたのランクをアップグレードします。' : '残念ながら、今回の成果は期待を下回りました。';
+                var careerIcon = isPass ? 'award' : 'alert-triangle';
+                var careerColor = isPass ? 'from-emerald-400 to-green-600' : 'from-rose-500 to-red-700';
+                var careerSub = isPass ? 'PROMOTION' : 'WARNING';
+
+                var scoreLabel = percentage >= 80 ? 'Perfect!' : (percentage >= 60 ? 'Good Job!' : 'Keep Going');
+                var dashOffset = 753 - (753 * percentage / 100);
+
+                // Extract ICE scores and reasons from scoreDetails
+                // scoreDetails.details structure: { "CategoryName1": { I: score, C: score, E: score }, ... }
+                // We need to sum all I scores, all C scores, all E scores across categories
+                var rubricMatrix = gameData.ice && gameData.ice.rubricMatrix ? gameData.ice.rubricMatrix : [];
+                var detailsObj = scoreDetails && scoreDetails.details ? scoreDetails.details : {};
+
+                var iScoreTotal = 0;
+                var cScoreTotal = 0;
+                var eScoreTotal = 0;
+                var iMaxTotal = 0;
+                var cMaxTotal = 0;
+                var eMaxTotal = 0;
+
+                rubricMatrix.forEach(function (row) {
+                    var cat = row.category;
+                    var catData = detailsObj[cat] || {};
+                    iScoreTotal += (catData.I || 0);
+                    cScoreTotal += (catData.C || 0);
+                    eScoreTotal += (catData.E || 0);
+                    iMaxTotal += (parseInt(row.i_score) || 0);
+                    cMaxTotal += (parseInt(row.c_score) || 0);
+                    eMaxTotal += (parseInt(row.e_score) || 0);
+                });
+
+                var iScore = iScoreTotal + ' / ' + iMaxTotal;
+                var cScore = cScoreTotal + ' / ' + cMaxTotal;
+                var eScore = eScoreTotal + ' / ' + eMaxTotal;
+
+                // Get overall reason/feedback from scoreDetails
+                var overallReason = scoreDetails && scoreDetails.reason ? scoreDetails.reason : '';
+                var iReason = overallReason || (scoreDetails && scoreDetails.feedback && scoreDetails.feedback.good ? scoreDetails.feedback.good : '評価なし');
+                var cReason = overallReason || '評価なし';
+                var eReason = scoreDetails && scoreDetails.feedback && scoreDetails.feedback.improvement ? scoreDetails.feedback.improvement : '評価なし';
+
+                // Get rubric texts from gameData.ice.rubricMatrix
+                var iTexts = rubricMatrix.map(function (r) { return r.i_text || ''; }).filter(function (t) { return t; }).join(' / ');
+                var cTexts = rubricMatrix.map(function (r) { return r.c_text || ''; }).filter(function (t) { return t; }).join(' / ');
+                var eTexts = rubricMatrix.map(function (r) { return r.e_text || ''; }).filter(function (t) { return t; }).join(' / ');
+                iTexts = iTexts || '用語や事実を正確に理解し、説明することができていましたか？';
+                cTexts = cTexts || '知識同士の関係や、自分の経験とのつながりを見つけられましたか？';
+                eTexts = eTexts || '学んだことを新しい状況に応用し、独自の提案ができましたか？';
+
+                // Build slide contents as array of objects
+                var slides = [];
+
+                // Slide 1: Intro
+                slides.push({
+                    color: 'from-orange-400 to-amber-600',
+                    html: '<div class="flex flex-col items-center justify-center h-full text-center p-8">' +
+                        '<div class="text-xs font-bold tracking-widest border border-white/30 rounded-full px-3 py-1 mb-8 uppercase">Year in Review</div>' +
+                        '<h2 class="text-4xl font-bold leading-relaxed mb-4">あなたの結果を<br>振り返ってみましょう。</h2>' +
+                        '<i data-lucide="play-circle" class="w-16 h-16 opacity-80 mt-8 animate-pulse"></i>' +
+                        '</div>'
+                });
+
+                // Slide 2: Career Result
+                slides.push({
+                    color: careerColor,
+                    html: '<div class="flex flex-col items-center justify-center h-full text-center p-8">' +
+                        '<div class="bg-white/20 p-6 rounded-full mb-8 backdrop-blur-sm"><i data-lucide="' + careerIcon + '" class="w-16 h-16 text-white"></i></div>' +
+                        '<div class="bg-black/20 text-white text-xs font-bold px-4 py-1 rounded-full mb-4">' + careerSub + '</div>' +
+                        '<h2 class="text-5xl font-black mb-6 tracking-tighter">' + careerTitle + '</h2>' +
+                        '<p class="text-lg font-medium opacity-90 leading-relaxed">' + careerMsg + '</p>' +
+                        '</div>'
+                });
+
+                // Slide 3: Score
+                slides.push({
+                    color: 'from-violet-500 to-purple-700',
+                    html: '<div class="flex flex-col items-center justify-center h-full text-center p-8">' +
+                        '<h3 class="text-lg font-bold opacity-80 mb-8">あなたの学びの点数</h3>' +
+                        '<div class="relative mb-8">' +
+                        '<svg class="w-64 h-64 transform -rotate-90"><circle cx="128" cy="128" r="120" stroke="rgba(255,255,255,0.2)" stroke-width="12" fill="none"/><circle cx="128" cy="128" r="120" stroke="white" stroke-width="12" fill="none" stroke-dasharray="753" stroke-dashoffset="' + dashOffset + '" style="transition: stroke-dashoffset 1.5s ease-out;"/></svg>' +
+                        '<div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-7xl font-black">' + gameScore + '</span><span class="text-xl opacity-70">/ ' + maxScore + '</span></div>' +
+                        '</div>' +
+                        '<div class="text-2xl font-bold">' + scoreLabel + '</div>' +
+                        '</div>'
+                });
+
+                // Slide 4: ICE - Ideas
+                slides.push({
+                    color: 'from-orange-400 to-red-500',
+                    html: '<div class="h-full p-6 pt-16 overflow-y-auto">' +
+                        '<h3 class="text-5xl font-black mb-2 opacity-50">I</h3>' +
+                        '<h2 class="text-2xl font-bold mb-4">基礎・知識</h2>' +
+                        '<div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl">' +
+                        '<div class="text-sm leading-relaxed mb-3 opacity-80">' + iTexts + '</div>' +
+                        '<div class="border-t border-white/20 pt-3 mt-3">' +
+                        '<div class="text-xs opacity-70 mb-1">Score</div>' +
+                        '<div class="text-3xl font-black mb-3">' + iScore + ' <span class="text-sm opacity-50">pt</span></div>' +
+                        '<div class="text-xs opacity-70 mb-1">Reason</div>' +
+                        '<div class="text-sm bg-white/10 p-3 rounded-lg">' + iReason + '</div>' +
+                        '</div></div></div>'
+                });
+
+                // Slide 5: ICE - Connections
+                slides.push({
+                    color: 'from-cyan-400 to-blue-600',
+                    html: '<div class="h-full p-6 pt-16 overflow-y-auto">' +
+                        '<h3 class="text-5xl font-black mb-2 opacity-50">C</h3>' +
+                        '<h2 class="text-2xl font-bold mb-4">関連・つながり</h2>' +
+                        '<div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl">' +
+                        '<div class="text-sm leading-relaxed mb-3 opacity-80">' + cTexts + '</div>' +
+                        '<div class="border-t border-white/20 pt-3 mt-3">' +
+                        '<div class="text-xs opacity-70 mb-1">Score</div>' +
+                        '<div class="text-3xl font-black mb-3">' + cScore + ' <span class="text-sm opacity-50">pt</span></div>' +
+                        '<div class="text-xs opacity-70 mb-1">Reason</div>' +
+                        '<div class="text-sm bg-white/10 p-3 rounded-lg">' + cReason + '</div>' +
+                        '</div></div></div>'
+                });
+
+                // Slide 6: ICE - Extensions
+                slides.push({
+                    color: 'from-purple-500 to-indigo-700',
+                    html: '<div class="h-full p-6 pt-16 overflow-y-auto">' +
+                        '<h3 class="text-5xl font-black mb-2 opacity-50">E</h3>' +
+                        '<h2 class="text-2xl font-bold mb-4">応用・実践</h2>' +
+                        '<div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl">' +
+                        '<div class="text-sm leading-relaxed mb-3 opacity-80">' + eTexts + '</div>' +
+                        '<div class="border-t border-white/20 pt-3 mt-3">' +
+                        '<div class="text-xs opacity-70 mb-1">Score</div>' +
+                        '<div class="text-3xl font-black mb-3">' + eScore + ' <span class="text-sm opacity-50">pt</span></div>' +
+                        '<div class="text-xs opacity-70 mb-1">Reason</div>' +
+                        '<div class="text-sm bg-white/10 p-3 rounded-lg">' + eReason + '</div>' +
+                        '</div></div></div>'
+                });
+
+                // Slide 7: Feedback (no buttons - moved to final slide)
+                slides.push({
+                    color: 'from-slate-800 to-slate-900',
+                    html: '<div class="flex flex-col h-full p-6 pt-12 text-center justify-start overflow-y-auto">' +
+                        '<div class="mb-4"><div class="text-green-400 font-bold mb-2 text-sm">GOOD POINTS</div><div class="text-sm bg-green-900/30 p-3 rounded-lg border border-green-500/30 text-green-100">' + feedbackGood + '</div></div>' +
+                        '<div class="mb-6"><div class="text-orange-400 font-bold mb-2 text-sm">ADVICE</div><div class="text-sm bg-orange-900/30 p-3 rounded-lg border border-orange-500/30 text-orange-100">' + feedbackBad + '</div></div>' +
+                        '<p class="text-xs opacity-50">タップして次へ</p>' +
+                        '</div>'
+                });
+
+                // Slide 8: Final - Buttons (Replay and Download)
+                slides.push({
+                    color: 'from-indigo-600 to-purple-800',
+                    html: '<div class="flex flex-col h-full p-6 text-center justify-center items-center">' +
+                        '<div class="text-4xl font-black mb-2">🎉</div>' +
+                        '<h2 class="text-2xl font-bold mb-2">お疲れ様でした！</h2>' +
+                        '<p class="text-sm opacity-70 mb-8">あなたの学びの旅が終わりました</p>' +
+                        '<button onclick="downloadEvaluation()" class="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-3 px-6 rounded-full hover:opacity-90 transition text-sm mb-4 flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i>学びの評価をダウンロード</button>' +
+                        '<button onclick="restartGame()" class="bg-white text-black font-bold py-3 px-6 rounded-full hover:bg-slate-200 transition text-sm flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i>もう一度プレイする</button>' +
+                        '</div>'
+                });
+
+                // Define restart function (clears localStorage and reloads)
+                window.restartGame = function () {
+                    try {
+                        var key = 'arg_save_' + (gameData.meta.title || 'default');
+                        localStorage.removeItem(key);
+                        console.log('Game save cleared:', key);
+                    } catch (e) {
+                        console.error('Failed to clear localStorage:', e);
+                    }
+                    location.reload();
+                };
+
+                // Define download function (creates summary element dynamically)
+                window.downloadEvaluation = function () {
+                    console.log('downloadEvaluation called');
+                    if (!window.html2canvas) {
+                        alert('html2canvasが読み込まれていません。ページを更新してください。');
+                        return;
+                    }
+
+                    // Create summary element dynamically (use solid background to avoid html2canvas gradient issues)
+                    var summaryEl = document.createElement('div');
+                    summaryEl.style.cssText = 'position: fixed; left: 0; top: 0; z-index: 9999; background: #4f46e5; color: white; padding: 24px; width: 400px; font-family: sans-serif;';
+                    summaryEl.innerHTML = '<div style="text-align: center; margin-bottom: 16px; font-size: 24px; font-weight: bold;">学びの評価</div>' +
+                        '<div style="text-align: center; margin-bottom: 16px;"><div style="font-size: 48px; font-weight: 900;">' + gameScore + '</div><div style="font-size: 14px; opacity: 0.7;">/ ' + maxScore + ' (' + percentage + '%)</div></div>' +
+                        '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 16px;"><div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 8px;"><div style="font-size: 10px; opacity: 0.7;">I</div><div style="font-weight: bold;">' + iScore + '</div></div><div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 8px;"><div style="font-size: 10px; opacity: 0.7;">C</div><div style="font-weight: bold;">' + cScore + '</div></div><div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 8px;"><div style="font-size: 10px; opacity: 0.7;">E</div><div style="font-weight: bold;">' + eScore + '</div></div></div>' +
+                        '<div style="text-align: left; font-size: 12px;"><div style="color: #86efac; font-weight: bold; margin-bottom: 4px;">Good:</div><div style="margin-bottom: 8px; opacity: 0.9;">' + feedbackGood.substring(0, 300) + (feedbackGood.length > 300 ? '...' : '') + '</div><div style="color: #fdba74; font-weight: bold; margin-bottom: 4px;">Advice:</div><div style="opacity: 0.9;">' + feedbackBad.substring(0, 300) + (feedbackBad.length > 300 ? '...' : '') + '</div></div>';
+
+                    document.body.appendChild(summaryEl);
+
+                    html2canvas(summaryEl, { scale: 2, backgroundColor: '#4f46e5', useCORS: true }).then(function (canvas) {
+                        document.body.removeChild(summaryEl);
+
+                        var link = document.createElement('a');
+                        link.download = 'learning_evaluation.png';
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                        console.log('Download triggered');
+                    }).catch(function (err) {
+                        console.error('html2canvas error:', err);
+                        document.body.removeChild(summaryEl);
+                        alert('画像の生成に失敗しました: ' + err.message);
+                    });
+                };
+
+                // Build progress bars HTML (with animation)
+                var barsHtml = '';
+                for (var i = 0; i < slides.length; i++) {
+                    barsHtml += '<div class="h-1 flex-1 bg-white/30 rounded-full overflow-hidden"><div id="bar-' + i + '" class="h-full bg-white transition-all duration-[10000ms] ease-linear" style="width: 0%;"></div></div>';
+                }
+
+                // Build Stories Container
+                html += '<div id="stories-container" class="absolute inset-0 z-[100] text-white overflow-hidden font-sans select-none bg-gradient-to-br ' + slides[0].color + '">';
+                html += '<div class="absolute top-4 left-0 w-full flex gap-1 px-2 z-20">' + barsHtml + '</div>';
+                html += '<div id="stories-nav-overlay" class="absolute inset-0 z-10 flex"><div class="w-1/3 h-full" onclick="prevSlide()"></div><div class="w-2/3 h-full" onclick="nextSlide()"></div></div>';
+                html += '<div id="slide-content" class="relative z-0 w-full h-full">' + slides[0].html + '</div>';
+                html += '<style>@keyframes fade-in-up{0%{opacity:0;transform:translateY(20px);}100%{opacity:1;transform:translateY(0);}}.animate-fade-in-up{animation:fade-in-up 0.8s cubic-bezier(0.16,1,0.3,1) forwards;}@keyframes scale-in{0%{opacity:0;transform:scale(0.9);}100%{opacity:1;transform:scale(1);}}.animate-scale-in{animation:scale-in 0.5s cubic-bezier(0.16,1,0.3,1) forwards;}</style>';
+                html += '</div>';
+
+                // Store slide data for navigation (will be used by setTimeout)
+                window._storiesSlideData = slides;
+                window._storiesCurrentSlide = 0;
+
+                // Define navigation functions
+                window.nextSlide = function () {
+                    var slides = window._storiesSlideData;
+                    var current = window._storiesCurrentSlide;
+                    if (current < slides.length - 1) {
+                        window._storiesCurrentSlide = current + 1;
+                        updateStoriesSlide();
+                    }
+                };
+
+                window.prevSlide = function () {
+                    var current = window._storiesCurrentSlide;
+                    if (current > 0) {
+                        window._storiesCurrentSlide = current - 1;
+                        updateStoriesSlide();
+                    }
+                };
+
+                window.updateStoriesSlide = function () {
+                    var slides = window._storiesSlideData;
+                    var current = window._storiesCurrentSlide;
+                    var container = document.getElementById('stories-container');
+                    var content = document.getElementById('slide-content');
+
+                    if (container && content && slides[current]) {
+                        container.className = 'absolute inset-0 z-[100] text-white overflow-hidden font-sans select-none bg-gradient-to-br ' + slides[current].color;
+                        content.innerHTML = slides[current].html;
+                        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+
+                        // Update bars: completed bars = 100%, current bar animates from 0 to 100%
+                        for (var i = 0; i < slides.length; i++) {
+                            var bar = document.getElementById('bar-' + i);
+                            if (bar) {
+                                if (i < current) {
+                                    bar.style.transition = 'none';
+                                    bar.style.width = '100%';
+                                } else if (i === current) {
+                                    bar.style.transition = 'none';
+                                    bar.style.width = '0%';
+                                    // Trigger reflow then animate
+                                    bar.offsetWidth;
+                                    bar.style.transition = 'width 10s linear';
+                                    bar.style.width = '100%';
+                                } else {
+                                    bar.style.transition = 'none';
+                                    bar.style.width = '0%';
+                                }
+                            }
+                        }
+
+                        // Reset and start auto-advance timer (except on last slide)
+                        if (window._storiesTimer) clearTimeout(window._storiesTimer);
+                        if (current < slides.length - 1) {
+                            window._storiesTimer = setTimeout(function () {
+                                window.nextSlide();
+                            }, 10000); // 10 seconds per slide
+                        }
+
+                        // Hide navigation overlay on last slide to allow button clicks
+                        var navOverlay = document.getElementById('stories-nav-overlay');
+                        if (navOverlay) {
+                            if (current === slides.length - 1) {
+                                navOverlay.style.display = 'none';
+                            } else {
+                                navOverlay.style.display = 'flex';
+                            }
+                        }
+                    }
+                };
+
+                // Start initial animation for first bar and timer
+                setTimeout(function () {
+                    var bar0 = document.getElementById('bar-0');
+                    if (bar0) {
+                        bar0.style.transition = 'width 10s linear';
+                        bar0.style.width = '100%';
+                    }
+                }, 50);
+                window._storiesTimer = setTimeout(function () {
+                    window.nextSlide();
+                }, 10000);
+            }
+
+            html += '</div>';
+            root.innerHTML = html;
+            if (window.lucide && window.lucide.createIcons) {
+                window.lucide.createIcons();
+            }
+
+            if (node.type === 'chat') {
+                const chatContainer = document.getElementById('chat-messages');
+                if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        // --- 仮想ホーム画面の描画ヘルパー ---
+        function getHomeHTML(node) {
+            // Notification Logic
+            var notifHTML = '';
+
+            // Build Notification if needed
+            if (pendingNode) {
+                var notifTitle = 'New Notification';
+                var notifBody = 'You have a new message';
+                var iconType = 'mail';
+
+                if (pendingNode.type === 'email') {
+                    notifTitle = pendingNode.sender;
+                    notifBody = pendingNode.subject;
+                    iconType = 'mail';
+                } else if (pendingNode.type === 'chat') {
+                    notifTitle = pendingNode.partner;
+                    // Use initial message or first message for notification body
+                    notifBody = (pendingNode.messages && pendingNode.messages[0] && pendingNode.messages[0].text)
+                        ? pendingNode.messages[0].text.substring(0, 30) + '...'
+                        : '新着メッセージがあります';
+                    iconType = 'message-circle';
+                } else if (pendingNode.type === 'search') {
+                    notifTitle = 'Search';
+                    notifBody = 'Tap to open search';
+                    iconType = 'search';
+                }
+
+                // Use simple string concatenation to avoid template literal nesting issues
+                // Remove onclick from here, as it shouldn't be clickable until shown
+                var bannerAction = "openApp('" + pendingNode.id + "')";
+                if (pendingNode.type === 'email') bannerAction = "currentNodeId='virtual_inbox'; render()";
+
+                notifHTML = '<div id="home-notif" class="notification" onclick="' + bannerAction + '">' +
+                    '<div class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-white"><i data-lucide="' + iconType + '"></i></div>' +
+                    '<div>' +
+                    '<div class="font-bold text-xs text-slate-900">' + notifTitle + '</div>' +
+                    '<div class="text-xs text-slate-500 truncate w-48">' + notifBody + '</div>' +
+                    '</div>' +
+                    '</div>';
+            }
+
+            // Build App Grid HTML safely (Removed Dock apps to avoid duplicates)
+            var appsHtml = ['mail', 'camera', 'photos', 'maps', 'settings', 'browser'].map(function (icon) {
+                var clickAction = "";
+                // Allow re-opening last email
+                if (icon === 'mail') {
+                    clickAction = "currentNodeId='virtual_inbox'; render()";
+                }
+                var iconId = 'app-icon-' + icon;
+
+                // Logic for App Click
+                if (pendingNode) {
+                    if ((icon === 'mail' && pendingNode.type === 'email')) {
+                        clickAction = "currentNodeId='virtual_inbox'; render()";
+                    }
+                }
+                // No special logic for others in grid mostly, just visual
+
+                // Icons handled by CSS/Lucide, uniform look
+                var bgStyle = 'bg-white/20 backdrop-blur-md border border-white/30';
+
+                return '<div id="' + iconId + '" class="flex flex-col items-center gap-1 group cursor-pointer transition transform hover:scale-105 active:scale-95" onclick="' + clickAction + '">' +
+                    '<div class="w-[58px] h-[58px] ' + bgStyle + ' rounded-[16px] flex items-center justify-center text-white shadow-lg shadow-black/5 transition">' +
+                    '<i data-lucide="' + icon + '" class="w-7 h-7 drop-shadow-sm"></i>' +
+                    '</div>' +
+                    '<span class="text-[10px] font-medium text-white tracking-wide drop-shadow-md capitalize">' + icon + '</span>' +
+                    '</div>';
+            }).join('');
+
+            // Dock Apps (phone, message, search, music) - Fixed Logic
+            var dockAppsHtml = ['phone', 'message-circle', 'search', 'music'].map(function (icon) {
+                var clickAction = "";
+
+                // 1. Notification Logic
+                if (pendingNode) {
+                    if ((icon === 'mail' && pendingNode.type === 'email') ||
+                        (icon === 'message-circle' && pendingNode.type === 'chat') ||
+                        (icon === 'search' && pendingNode.type === 'search') ||
+                        (icon === 'phone' && pendingNode.type === 'phone')) {
+                        clickAction = (icon === 'mail') ? "currentNodeId='virtual_inbox'; render()" : "openApp('" + pendingNode.id + "')";
+                    }
+                }
+
+                // 2. Default Logic (if no notification) for Search
+                if (!clickAction && icon === 'search' && node.next) {
+                    // If Search app is tapped and there is a next node definition (usually leading to search UI)
+                    clickAction = "triggerNext('" + node.next + "')";
+                }
+
+                // 3. Fallback/Empty interaction
+                if (!clickAction && (icon === 'phone' || icon === 'message-circle')) {
+                    clickAction = "alert('新しい着信はありません')";
+                }
+
+                var bgClass = 'bg-white/20'; // Default
+                if (icon === 'phone') bgClass = 'bg-green-500/90';
+                if (icon === 'message-circle') bgClass = 'bg-green-400/90';
+
+                return '<div class="flex flex-col items-center group cursor-pointer transition transform hover:scale-110 active:scale-95" onclick="' + clickAction + '">' +
+                    '<div class="w-[58px] h-[58px] ' + bgClass + ' backdrop-blur-md border border-white/20 rounded-[16px] flex items-center justify-center text-white shadow-lg">' +
+                    '<i data-lucide="' + icon + '" class="w-7 h-7 text-white drop-shadow-sm"></i>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+
+            return '<div class="h-full w-full mesh-bg flex flex-col pt-12 relative overflow-hidden">' +
+                // Status Bar Blur
+                '<div class="absolute top-0 w-full h-8 bg-black/10 backdrop-blur-[2px] z-10"></div>' +
+                // Main Content
+                notifHTML +
+                '<div class="flex-1 grid grid-cols-4 content-start gap-x-4 gap-y-6 p-6">' +
+                appsHtml +
+                '</div>' +
+                // Dock
+                '<div class="p-4 pb-8 mb-2 mx-4">' +
+                '<div class="bg-white/20 backdrop-blur-xl border border-white/20 rounded-[28px] p-4 flex justify-around items-center shadow-[0_8px_32px_rgba(0,0,0,0.2)]">' +
+                dockAppsHtml +
+                '</div>' +
+                '</div>' +
+                '</div>';
+        }
+
+
+        function renderVirtualInbox(root) {
+            let html = `
+        <div class="bg-gray-100 h-screen flex flex-col pt-8">
+             <div class="bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10 shadow-sm text-slate-800">
+                <button class="text-blue-600 font-bold flex items-center gap-1" onclick="currentNodeId='virtual_home'; render();">
+                    <i data-lucide="chevron-left" class="w-5 h-5"></i> ホーム
+                </button>
+                <span class="font-bold">受信トレイ</span>
+                <span class="w-12 text-right text-blue-600 font-medium text-sm" onclick="render()">更新</span>
+            </div>
+            <div class="p-0 flex-1 overflow-y-auto">
+    `;
+
+            let emails = [];
+            if (pendingNode && pendingNode.type === 'email') {
+                emails.push({ ...pendingNode, unread: true });
+            }
+            if (lastEmailId && (!pendingNode || pendingNode.id !== lastEmailId)) {
+                const last = gameData.nodes.find(n => n.id === lastEmailId);
+                if (last) emails.push({ ...last, unread: false });
+            }
+
+            if (emails.length === 0) {
+                html += '<div class="p-10 text-center text-gray-400 text-sm mt-10">メッセージはありません</div>';
+            } else {
+                emails.forEach(node => {
+                    const preview = node.body ? node.body.substring(0, 40).replace(/\n/g, ' ') + '...' : '';
+                    html += `
+                <div class="bg-white border-b pl-4 pr-3 py-3 flex gap-3 active:bg-gray-50 cursor-pointer transition" onclick="openApp('${node.id}')">
+                     <div class="mt-2 w-2.5 h-2.5 rounded-full ${node.unread ? 'bg-blue-600' : 'bg-transparent'} flex-shrink-0"></div>
+                     <div class="flex-1 min-w-0">
+                         <div class="flex justify-between mb-0.5 items-baseline">
+                             <div class="font-bold text-base text-slate-900 truncate">${node.sender}</div>
+                             <div class="text-xs text-slate-400">Now</div>
+                         </div>
+                         <div class="font-medium text-sm text-slate-800 mb-0.5 truncate">${node.subject}</div>
+                         <div class="text-xs text-slate-500 line-clamp-2 leading-tight">${preview}</div>
+                     </div>
+                     <div class="flex items-center text-slate-300"><i data-lucide="chevron-right" class="w-5 h-5"></i></div>
+                </div>
+             `;
+                });
+            }
+
+            html += '</div></div>';
+            root.innerHTML = html;
+            if (window.lucide && window.lucide.createIcons) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function renderVirtualHome(root, homeNode) {
+            notificationArrived = false; // Reset notification state
+            const node = homeNode || {};
+
+            root.innerHTML = '<div class="w-full h-full fade-in relative">' +
+                '<div class="h-6 bg-white/0 absolute w-full top-0 flex justify-between px-4 pt-1 z-50 text-xs font-bold pointer-events-none text-white"><span>' + getFormattedTime() + '</span><span>100%</span></div>' +
+                getHomeHTML(node) +
+                '</div>';
+            if (window.lucide && window.lucide.createIcons) {
+                window.lucide.createIcons();
+            }
+
+            // Notification Delay Logic - use game settings or default 3 seconds
+            const notifDelay = (gameData.gameSettings && gameData.gameSettings.notificationDelay) ? gameData.gameSettings.notificationDelay * 1000 : 3000;
+
+            if (pendingNode) {
+                setTimeout(function () {
+                    notificationArrived = true;
+
+                    // Show Notification Banner
+                    var notif = document.getElementById('home-notif');
+                    if (notif) notif.classList.add('show');
+
+                    // Add Badge to Icon
+                    var iconType = 'mail'; // default
+                    if (pendingNode.type === 'chat') iconType = 'message-circle';
+                    if (pendingNode.type === 'search') iconType = 'search';
+                    if (pendingNode.type === 'email') iconType = 'mail';
+
+                    var iconEl = document.getElementById('app-icon-' + iconType);
+                    if (iconEl) {
+                        var badge = document.createElement('div');
+                        badge.className = 'absolute top-0 right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white fade-in';
+                        iconEl.appendChild(badge);
+                    }
+                }, notifDelay);
+            }
+        }
+
+        // --- ロジックヘルパー ---
+        // 次のノードへ遷移する
+        function triggerNext(nextId) {
+            if (!nextId) return;
+
+            const nextNode = gameData.nodes.find(n => n.id === nextId);
+
+            // Check for Notification Interception
+            if (nextNode && (nextNode.type === 'email' || nextNode.type === 'chat')) {
+                pendingNode = nextNode;
+                currentNodeId = 'virtual_home';
+                render();
+                return;
+            }
+
+            currentNodeId = nextId;
+            render();
+        }
+
+        function handleFormSubmit(nextId) {
+            const node = gameData.nodes.find(n => n.id === currentNodeId);
+
+            // Save User Name
+            const nameInput = document.getElementById('form-name-input');
+            if (nameInput && nameInput.value) {
+                window.currentPlayerName = nameInput.value;
+            }
+
+            alert(node.successMessage || "送信しました");
+            triggerNext(nextId);
+        }
+
+        function handleSearch() {
+            const input = document.getElementById('search-input').value;
+            const node = gameData.nodes.find(n => n.id === currentNodeId);
+            if (input.includes(node.query)) {
+                triggerNext(node.next);
+            } else {
+                alert('検索結果が見つかりません。ヒントを確認してください。');
+            }
+        }
+
+        function downloadCertificate() {
+            const element = document.getElementById('certificate-container');
+            if (!element) return;
+
+            html2canvas(element).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'certificate.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            }).catch(err => {
+                alert("保存に失敗しました: " + err);
+            });
+        }
+
+        function startCall() {
+            document.getElementById('incoming-ui').classList.add('hidden');
+            document.getElementById('call-active-ui').classList.remove('hidden');
+
+            const node = gameData.nodes.find(n => n.id === currentNodeId);
+
+            // Determine which audio to play based on score
+            const threshold = node.scoreThreshold !== undefined ? parseInt(node.scoreThreshold) : 60;
+            const isPass = gameScore >= threshold;
+            const audioSrc = isPass ? node.audioGood : node.audioBad;
+
+            // Timer Logic
+            let seconds = 0;
+            const timerEl = document.getElementById('active-timer');
+            const timerInterval = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const secs = (seconds % 60).toString().padStart(2, '0');
+                if (timerEl) timerEl.textContent = mins + ':' + secs;
+            }, 1000);
+
+            const finishCall = () => {
+                clearInterval(timerInterval);
+                triggerNext(node.next);
+            };
+
+            if (audioSrc || node.audio) {
+                const src = audioSrc || node.audio;
+                const audio = new Audio(src);
+
+                // Wait for audio to end before finishing
+                audio.onended = finishCall;
+
+                audio.play().catch(e => {
+                    console.log("Audio play failed:", e);
+                    // Fallback if audio fails
+                    setTimeout(finishCall, node.duration || 3000);
+                });
+            } else {
+                // No audio, use duration
+                setTimeout(finishCall, node.duration || 3000);
+            }
+        }
+
+        async function handleChatSend() {
+            try {
+                const inputEl = document.getElementById('chat-input');
+                const text = inputEl.value;
+                if (!text) return;
+
+                const node = gameData.nodes.find(n => n.id === currentNodeId);
+
+                // Add User Message
+                chatHistory.push({ sender: 'me', text: text });
+                inputEl.value = '';
+                render();
+
+                chatCount++;
+
+                // CHECK EXIT CONDITION
+                let shouldExit = false;
+                if (node.exitCondition === 'keyword' && text.includes(node.exitValue)) shouldExit = true;
+                if (node.exitCondition === 'count' && chatCount >= parseInt(node.exitValue || 3)) shouldExit = true;
+
+                if (shouldExit) {
+                    if (node.chatMode === 'ai' && node.passNext) {
+                        // Perform Evaluation
+                        await evaluateChat(node);
+                    } else {
+                        setTimeout(() => triggerNext(node.next), 1000);
+                    }
+                    return;
+                }
+
+                // GENERATE REPLY
+                let replyText = "...";
+
+                if (node.chatMode === 'simple') {
+                    setTimeout(() => triggerNext(node.next), 1000);
+                    return;
+                }
+                else if (node.chatMode === 'rule') {
+                    const rules = typeof node.rules === 'string' ? JSON.parse(node.rules || '[]') : (node.rules || []);
+                    const match = rules.find(r => text.includes(r.key));
+                    replyText = match ? match.res : "なるほど、他には？";
+                }
+                else if (node.chatMode === 'ai') {
+                    // Gemini API Call
+                    let key = node.apiKey || gameData.globalApiKey;
+                    if (!key) {
+                        const userInputKey = document.getElementById('user-api-key');
+                        if (userInputKey) key = userInputKey.value;
+                    }
+
+                    if (!key) {
+                        replyText = "[System] API Keyが必要です。";
+                    } else {
+                        try {
+                            const model = node.modelName || gameData.gameSettings?.geminiModel || 'gemini-2.5-flash';
+                            // ▼ここをCloudflare WorkerのURLに置き換えてください▼
+                            // 例: const WORKER_URL = "https://gemini-proxy-arg.XXXXX.workers.dev/v1beta/models/" + model + ":generateContent";
+                            const WORKER_URL = "https://gemini-proxy-arg.s22c3113wz.workers.dev/v1beta/models/" + model + ":generateContent";
+
+                            // Use comprehensive system prompt (set during game generation)
+                            let sysPrompt = node.systemPrompt || "";
+
+                            // Fallback: Build from ICE data if no system prompt
+                            if (!sysPrompt && node.useIcePrompt && gameData.ice) {
+                                const ice = gameData.ice;
+                                const char = gameData.character || {};
+                                const missions = gameData.missions || [];
+
+                                const rubricText = (ice.rubricMatrix || []).map(r => "- [" + r.category + "] I: " + r.i_text + ", C: " + r.c_text + ", E: " + r.e_text).join('\n');
+                                const missionText = missions.map((m, i) => "フェーズ" + (i + 1) + " [" + m.iceLevel + "]: " + m.name + " - SOS: " + m.characterSOS + " ").join('\n');
+
+                                sysPrompt = "あなたは「" + (char.name || 'キャラクター') + "」です。\\n" +
+                                    "性格: " + (char.personality || '好奇心旺盛') + "\\n" +
+                                    "場所: " + (char.location || '学校') + "\\n\\n" +
+                                    "学習目標:\\n" +
+                                    "I(基礎): " + ice.ideas.q + "\\n" +
+                                    "C(関連): " + ice.connections.q + "\\n" +
+                                    "E(応用): " + ice.extensions.q + "\\n\\n" +
+                                    "ミッション構成:\\n" + missionText + "\\n\\n" +
+                                    "ルーブリック:\\n" + rubricText + "\\n\\n" +
+                                    "【重要】必ず50文字以内で返答してください。キャラクターの口調を維持し、以下のステップで会話を進めてください。\\n" +
+                                    "1. まず、自分が直面している問題を「助けを求める言葉（SOS）」として伝えてください。\\n" +
+                                    "2. 次に、ユーザーに対して「I（基礎知識）」について確認する質問を投げかけてください。\\n" +
+                                    "3. その後、ユーザーの回答に応じて C→E の順で学習を進めてください。\\n" +
+                                    "Eレベルまで到達したら[[END]] を付けてください。";
+                            }
+
+                            // AUTO-END INSTRUCTION
+                            sysPrompt += "\\n\\n[システム指示]\\n・会話が終わる場合以外は、必ず最後に「質問」または「回答を促す言葉」で終えてください。\\n・複数の吹き出しに分けたい場合は、文中に ||| という記号を入れて区切ってください。\\n・会話が完了したら返答の最後に [[END]] を付けてください。";
+
+                            // Append chat history for context
+                            const historyText = chatHistory.map(m => (m.sender === 'me' ? '助言者: ' : 'キャラクター: ') + m.text).join('\n');
+
+                            const response = await fetch(WORKER_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [
+                                        { role: "user", parts: [{ text: sysPrompt + "\n\n[会話履歴]\n" + historyText + "\n\nキャラクター（50文字以内で返答）:" }] }
+                                    ],
+                                    generationConfig: {
+                                        maxOutputTokens: 8192
+                                    }
+                                })
+                            });
+                            const data = await response.json();
+                            if (data.error) {
+                                throw new Error(data.error.message || "API Error");
+                            }
+
+                            if (!data.candidates || data.candidates.length === 0) {
+                                if (data.promptFeedback) {
+                                    throw new Error("Blocked by Prompt Feedback: " + JSON.stringify(data.promptFeedback));
+                                }
+                                throw new Error("No candidates returned. Response: " + JSON.stringify(data));
+                            }
+
+                            const candidate = data.candidates[0];
+                            // Allow MAX_TOKENS for chat, as partial text is better than error
+                            if (candidate.finishReason && candidate.finishReason !== "STOP" && candidate.finishReason !== "MAX_TOKENS") {
+                                throw new Error("Generation stopped. Reason: " + candidate.finishReason);
+                            }
+
+                            let rawText = candidate.content?.parts?.[0]?.text;
+                            if (!rawText) {
+                                throw new Error("No text in response. Candidate: " + JSON.stringify(candidate));
+                            }
+
+                            // CHECK FOR END SIGNAL
+                            if (rawText.includes('[[END]]')) {
+                                shouldExit = true;
+                                rawText = rawText.replace('[[END]]', '').trim();
+                            }
+                            replyText = rawText;
+
+                        } catch (e) {
+                            console.error(e);
+                            replyText = "Error: " + e.message;
+                        }
+                    }
+                }
+
+                // Add Reply (Multi-Bubble Support)
+                const messages = replyText.split('|||').map(t => t.trim()).filter(t => t);
+
+                // Function to add messages sequentially
+                const addMessagesSequentially = (index) => {
+                    if (index >= messages.length) {
+                        // All messages added, check for exit
+                        if (shouldExit) {
+                            setTimeout(() => {
+                                if (node.chatMode === 'ai' && node.passNext) {
+                                    // Skip evaluation here, go to Ending first
+                                    triggerNext(node.passNext);
+                                } else {
+                                    triggerNext(node.next);
+                                }
+                            }, 2000);
+                        }
+                        return;
+                    }
+
+                    chatHistory.push({ sender: 'them', text: messages[index] });
+                    render(); // Re-render chat view
+
+                    // Scroll to bottom
+                    const chatContainer = document.getElementById('chat-messages');
+                    if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                    // Schedule next message
+                    setTimeout(() => addMessagesSequentially(index + 1), 1000);
+                };
+
+                // Start adding messages with initial delay
+                setTimeout(() => addMessagesSequentially(0), 1000);
+            } catch (e) { alert("Error: " + e.message); }
+        }
+
+        // AIによるチャット評価処理 (学びの評価に基づく)
+        async function evaluateChat(node, nextIdOverride) {
+            const loading = document.getElementById('chat-loading');
+            // If not in chat view, we might need a global loading overlay or just use the one if available
+            // For now, let's assume we can find it or create a temporary one
+            if (loading) {
+                loading.classList.remove('hidden');
+                loading.innerHTML = '<div class="bg-white p-4 rounded shadow-lg text-xs font-bold flex items-center gap-2"><div class="w-4 h-4 border-2 border-blue-500 rounded-full animate-spin border-t-transparent"></div>AI評価中...</div>';
+            } else {
+                // Create overlay if missing (e.g. called from Ending screen)
+                const overlay = document.createElement('div');
+                overlay.id = 'temp-loading';
+                overlay.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center text-white font-bold';
+                overlay.innerHTML = '<div class="flex flex-col items-center gap-4"><div class="w-8 h-8 border-4 border-blue-500 rounded-full animate-spin border-t-transparent"></div><div>AI評価中...</div></div>';
+                document.body.appendChild(overlay);
+            }
+
+            let key = node.apiKey || gameData.globalApiKey;
+            if (!key) {
+                const userInputKey = document.getElementById('user-api-key');
+                if (userInputKey) key = userInputKey.value;
+            }
+
+            try {
+                const model = node.modelName || gameData.gameSettings?.geminiModel || 'gemini-2.5-flash';
+                const ice = gameData.ice;
+                // Build rubric details for evaluator
+                const rubricDetails = (ice.rubricMatrix || []).map(r =>
+                    `Category: ${r.category} (Max Points: I=${r.i_score}, C=${r.c_score}, E=${r.e_score})
+Criteria: I=${r.i_text}, C=${r.c_text}, E=${r.e_text}`
+                ).join('\n\n');
+
+                const historyText = (chatHistory || []).map(m => {
+                    const role = m.sender === 'me' ? 'Teacher' : 'Student';
+                    const content = m.text ? m.text.replace(/\`/g, "'") : '(empty)';
+                    return role + ': ' + content;
+                }).join('\n');
+
+                console.log("Debug: History Length", chatHistory.length);
+                console.log("Debug: History Text", historyText);
+
+                if (!historyText) {
+                    console.warn("Chat history is empty during evaluation");
+                }
+
+                const evalPrompt = `
+            以下の会話履歴と評価ルーブリックに基づいて、「ユーザー」のパフォーマンスを評価してください。
+            
+            [会話履歴]
+            ${historyText || '(会話履歴なし)'}
+
+            [評価ルーブリック]
+            ${rubricDetails}
+
+            以下の構造を持つJSONオブジェクトのみを出力してください（マークダウンは不要です）。
+            必ず日本語で出力してください。
+            【重要】reason, good, improvementはそれぞれ必ず400文字以内で簡潔にまとめてください。
+            {
+                "totalScore": 数値 (0-100),
+                "reason": "評価の要約（日本語、400文字以内）",
+                "feedback": {
+                    "good": "良かった点（日本語で具体的に、400文字以内）",
+                    "improvement": "改善点とアドバイス（日本語で具体的に、400文字以内）"
+                },
+                "details": {
+                    "CategoryName1": { "I": score, "C": score, "E": score },
+                    "CategoryName2": { "I": score, "C": score, "E": score }
+                }
+            }
+        `;
+
+                // ▼ここをCloudflare WorkerのURLに置き換えてください▼
+                // 例: const WORKER_URL = "https://gemini-proxy-arg.XXXXX.workers.dev/v1beta/models/" + model + ":generateContent";
+                const WORKER_URL = "https://gemini-proxy-arg.s22c3113wz.workers.dev/v1beta/models/" + model + ":generateContent";
+
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [
+                            { role: "user", parts: [{ text: evalPrompt }] }
+                        ],
+                        generationConfig: {
+                            maxOutputTokens: 8192
+                        }
+                    })
+                });
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                // Parse JSON (handle potential markdown fences)
+                const jsonStr = text.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+                const result = JSON.parse(jsonStr);
+
+                // --- SCORING RE-CALCULATION (Avoid AI Math Errors and Over-Scoring) ---
+                // AIが返した合計点(totalScore)は信頼せず、個別の詳細スコアを積み上げて再計算する。
+                // また、設定された最大点数を超えないようにクランプ処理を行う。
+
+                // Initialize re-calculated score
+                let calculatedTotalScore = 0;
+
+                // Ensure structure exists
+                if (!result.details) result.details = {};
+
+                // Rubric Matrixに基づいて正確に計算
+                // ICEモデルの評価ロジック:
+                // 各カテゴリごとに I(Ideas/基礎), C(Connections/関連), E(Extensions/応用) の3つの観点で評価する。
+                // それぞれに配点があり(デフォルト10点ずつなど)、それらの合計がカテゴリのスコアとなる。
+                // 全カテゴリのスコアの合計が、ゲーム全体の総合評価(Total Score)となる。
+                (gameData.ice.rubricMatrix || []).forEach(row => {
+                    const cat = row.category;
+                    const maxI = parseInt(row.i_score) || 0;
+                    const maxC = parseInt(row.c_score) || 0;
+                    const maxE = parseInt(row.e_score) || 0;
+
+                    // Get AI scores (default to 0 if missing)
+                    let detail = result.details[cat] || { I: 0, C: 0, E: 0 };
+
+                    // Clamp scores (AIが最大点より大きい値を返した場合の補正)
+                    let scoreI = Math.min(detail.I || 0, maxI);
+                    let scoreC = Math.min(detail.C || 0, maxC);
+                    let scoreE = Math.min(detail.E || 0, maxE);
+
+                    // Update result object with corrected values
+                    if (!result.details[cat]) result.details[cat] = {};
+                    // Ensure integer
+                    result.details[cat].I = scoreI;
+                    result.details[cat].C = scoreC;
+                    result.details[cat].E = scoreE;
+
+                    // Add to total
+                    calculatedTotalScore += (scoreI + scoreC + scoreE);
+                });
+
+                // Apply calculated score
+                gameScore = calculatedTotalScore;
+                result.totalScore = calculatedTotalScore; // Sync AI result with reality
+                scoreDetails = result;
+
+                console.log("Calculated Score:", gameScore);
+
+                // Determine route
+                const threshold = parseInt(node.scoreThreshold) || 60;
+                const nextId = nextIdOverride || (gameScore >= threshold ? node.passNext : node.failNext);
+
+                // Update the target node's isGood status based on score
+                const targetNode = gameData.nodes.find(n => n.id === nextId);
+                if (targetNode && targetNode.type === 'result') {
+                    targetNode.isGood = gameScore >= threshold;
+                }
+
+                triggerNext(nextId);
+
+            } catch (e) {
+                console.error("Evaluation failed", e);
+                alert("採点エラーが発生しました。次に進みます。");
+                triggerNext(nextIdOverride || node.next); // Fallback
+            } finally {
+                if (loading) loading.classList.add('hidden');
+                const tempOverlay = document.getElementById('temp-loading');
+                if (tempOverlay) tempOverlay.remove();
+            }
+        }
+
+        window.gameTrigger = function (id) { triggerNext(id); };
+
+        // Start
+        window.onload = render;
+
+    </script>
+</body>
+
+</html>
