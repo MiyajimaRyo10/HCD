@@ -1531,137 +1531,125 @@
                 }
                 else if (node.chatMode === 'ai') {
                     // Gemini API Call
-                    let key = node.apiKey || gameData.globalApiKey;
-                    if (!key) {
-                        const userInputKey = document.getElementById('user-api-key');
-                        if (userInputKey) key = userInputKey.value;
-                    }
+                    // Worker proxy does not require explicit front-end API key
+                    try {
+                        const model = node.modelName || gameData.gameSettings?.geminiModel || 'gemini-2.5-flash';
+                        // ▼ここをCloudflare WorkerのURLに置き換えてください▼
+                        // 例: const WORKER_URL = "https://gemini-proxy-arg.XXXXX.workers.dev/v1beta/models/" + model + ":generateContent";
+                        const WORKER_URL = "https://gemini-proxy-arg.s22c3113wz.workers.dev/v1beta/models/" + model + ":generateContent";
 
-                    if (!key) {
-                        replyText = "[System] API Keyが必要です。";
-                    } else {
-                        try {
-                            const model = node.modelName || gameData.gameSettings?.geminiModel || 'gemini-2.5-flash';
-                            // ▼ここをCloudflare WorkerのURLに置き換えてください▼
-                            // 例: const WORKER_URL = "https://gemini-proxy-arg.XXXXX.workers.dev/v1beta/models/" + model + ":generateContent";
-                            const WORKER_URL = "https://gemini-proxy-arg.s22c3113wz.workers.dev/v1beta/models/" + model + ":generateContent";
+                        // Use comprehensive system prompt (set during game generation)
+                        let sysPrompt = node.systemPrompt || "";
 
-                            // Use comprehensive system prompt (set during game generation)
-                            let sysPrompt = node.systemPrompt || "";
+                        // Fallback: Build from ICE data if no system prompt
+                        if (!sysPrompt && node.useIcePrompt && gameData.ice) {
+                            const ice = gameData.ice;
+                            const char = gameData.character || {};
+                            const missions = gameData.missions || [];
 
-                            // Fallback: Build from ICE data if no system prompt
-                            if (!sysPrompt && node.useIcePrompt && gameData.ice) {
-                                const ice = gameData.ice;
-                                const char = gameData.character || {};
-                                const missions = gameData.missions || [];
+                            const rubricText = (ice.rubricMatrix || []).map(r => "- [" + r.category + "] I: " + r.i_text + ", C: " + r.c_text + ", E: " + r.e_text).join('\n');
+                            const missionText = missions.map((m, i) => "フェーズ" + (i + 1) + " [" + m.iceLevel + "]: " + m.name + " - SOS: " + m.characterSOS + " ").join('\n');
 
-                                const rubricText = (ice.rubricMatrix || []).map(r => "- [" + r.category + "] I: " + r.i_text + ", C: " + r.c_text + ", E: " + r.e_text).join('\n');
-                                const missionText = missions.map((m, i) => "フェーズ" + (i + 1) + " [" + m.iceLevel + "]: " + m.name + " - SOS: " + m.characterSOS + " ").join('\n');
-
-                                sysPrompt = "あなたは「" + (char.name || 'キャラクター') + "」です。\\n" +
-                                    "性格: " + (char.personality || '好奇心旺盛') + "\\n" +
-                                    "場所: " + (char.location || '学校') + "\\n\\n" +
-                                    "学習目標:\\n" +
-                                    "I(基礎): " + ice.ideas.q + "\\n" +
-                                    "C(関連): " + ice.connections.q + "\\n" +
-                                    "E(応用): " + ice.extensions.q + "\\n\\n" +
-                                    "ミッション構成:\\n" + missionText + "\\n\\n" +
-                                    "ルーブリック:\\n" + rubricText + "\\n\\n" +
-                                    "【重要】必ず50文字以内で返答してください。キャラクターの口調を維持し、以下のステップで会話を進めてください。\\n" +
-                                    "1. まず、自分が直面している問題を「助けを求める言葉（SOS）」として伝えてください。\\n" +
-                                    "2. 次に、ユーザーに対して「I（基礎知識）」について確認する質問を投げかけてください。\\n" +
-                                    "3. その後、ユーザーの回答に応じて C→E の順で学習を進めてください。\\n" +
-                                    "Eレベルまで到達したら[[END]] を付けてください。";
-                            }
-
-                            // AUTO-END INSTRUCTION
-                            sysPrompt += "\\n\\n[システム指示]\\n・会話が終わる場合以外は、必ず最後に「質問」または「回答を促す言葉」で終えてください。\\n・複数の吹き出しに分けたい場合は、文中に ||| という記号を入れて区切ってください。\\n・会話が完了したら返答の最後に [[END]] を付けてください。";
-
-                            // Append chat history for context
-                            const historyText = chatHistory.map(m => (m.sender === 'me' ? '助言者: ' : 'キャラクター: ') + m.text).join('\n');
-
-                            const response = await fetch(WORKER_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [
-                                        { role: "user", parts: [{ text: sysPrompt + "\n\n[会話履歴]\n" + historyText + "\n\nキャラクター（50文字以内で返答）:" }] }
-                                    ],
-                                    generationConfig: {
-                                        maxOutputTokens: 8192
-                                    }
-                                })
-                            });
-                            const data = await response.json();
-                            if (data.error) {
-                                throw new Error(data.error.message || "API Error");
-                            }
-
-                            if (!data.candidates || data.candidates.length === 0) {
-                                if (data.promptFeedback) {
-                                    throw new Error("Blocked by Prompt Feedback: " + JSON.stringify(data.promptFeedback));
-                                }
-                                throw new Error("No candidates returned. Response: " + JSON.stringify(data));
-                            }
-
-                            const candidate = data.candidates[0];
-                            // Allow MAX_TOKENS for chat, as partial text is better than error
-                            if (candidate.finishReason && candidate.finishReason !== "STOP" && candidate.finishReason !== "MAX_TOKENS") {
-                                throw new Error("Generation stopped. Reason: " + candidate.finishReason);
-                            }
-
-                            let rawText = candidate.content?.parts?.[0]?.text;
-                            if (!rawText) {
-                                throw new Error("No text in response. Candidate: " + JSON.stringify(candidate));
-                            }
-
-                            // CHECK FOR END SIGNAL
-                            if (rawText.includes('[[END]]')) {
-                                shouldExit = true;
-                                rawText = rawText.replace('[[END]]', '').trim();
-                            }
-                            replyText = rawText;
-
-                        } catch (e) {
-                            console.error(e);
-                            replyText = "Error: " + e.message;
+                            sysPrompt = "あなたは「" + (char.name || 'キャラクター') + "」です。\\n" +
+                                "性格: " + (char.personality || '好奇心旺盛') + "\\n" +
+                                "場所: " + (char.location || '学校') + "\\n\\n" +
+                                "学習目標:\\n" +
+                                "I(基礎): " + ice.ideas.q + "\\n" +
+                                "C(関連): " + ice.connections.q + "\\n" +
+                                "E(応用): " + ice.extensions.q + "\\n\\n" +
+                                "ミッション構成:\\n" + missionText + "\\n\\n" +
+                                "ルーブリック:\\n" + rubricText + "\\n\\n" +
+                                "【重要】必ず50文字以内で返答してください。キャラクターの口調を維持し、以下のステップで会話を進めてください。\\n" +
+                                "1. まず、自分が直面している問題を「助けを求める言葉（SOS）」として伝えてください。\\n" +
+                                "2. 次に、ユーザーに対して「I（基礎知識）」について確認する質問を投げかけてください。\\n" +
+                                "3. その後、ユーザーの回答に応じて C→E の順で学習を進めてください。\\n" +
+                                "Eレベルまで到達したら[[END]] を付けてください。";
                         }
+
+                        // AUTO-END INSTRUCTION
+                        sysPrompt += "\\n\\n[システム指示]\\n・会話が終わる場合以外は、必ず最後に「質問」または「回答を促す言葉」で終えてください。\\n・複数の吹き出しに分けたい場合は、文中に ||| という記号を入れて区切ってください。\\n・会話が完了したら返答の最後に [[END]] を付けてください。";
+
+                        // Append chat history for context
+                        const historyText = chatHistory.map(m => (m.sender === 'me' ? '助言者: ' : 'キャラクター: ') + m.text).join('\n');
+
+                        const response = await fetch(WORKER_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [
+                                    { role: "user", parts: [{ text: sysPrompt + "\n\n[会話履歴]\n" + historyText + "\n\nキャラクター（50文字以内で返答）:" }] }
+                                ],
+                                generationConfig: {
+                                    maxOutputTokens: 8192
+                                }
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.error) {
+                            throw new Error(data.error.message || "API Error");
+                        }
+
+                        if (!data.candidates || data.candidates.length === 0) {
+                            if (data.promptFeedback) {
+                                throw new Error("Blocked by Prompt Feedback: " + JSON.stringify(data.promptFeedback));
+                            }
+                            throw new Error("No candidates returned. Response: " + JSON.stringify(data));
+                        }
+
+                        const candidate = data.candidates[0];
+                        // Allow MAX_TOKENS for chat, as partial text is better than error
+                        if (candidate.finishReason && candidate.finishReason !== "STOP" && candidate.finishReason !== "MAX_TOKENS") {
+                            throw new Error("Generation stopped. Reason: " + candidate.finishReason);
+                        }
+
+                        let rawText = candidate.content?.parts?.[0]?.text;
+                        if (!rawText) {
+                            throw new Error("No text in response. Candidate: " + JSON.stringify(candidate));
+                        }
+
+                        // CHECK FOR END SIGNAL
+                        if (rawText.includes('[[END]]')) {
+                            shouldExit = true;
+                            rawText = rawText.replace('[[END]]', '').trim();
+                        }
+                        // Add Reply (Multi-Bubble Support)
+                        const messages = replyText.split('|||').map(t => t.trim()).filter(t => t);
+
+                        // Function to add messages sequentially
+                        const addMessagesSequentially = (index) => {
+                            if (index >= messages.length) {
+                                // All messages added, check for exit
+                                if (shouldExit) {
+                                    setTimeout(() => {
+                                        if (node.chatMode === 'ai' && node.passNext) {
+                                            // Skip evaluation here, go to Ending first
+                                            triggerNext(node.passNext);
+                                        } else {
+                                            triggerNext(node.next);
+                                        }
+                                    }, 2000);
+                                }
+                                return;
+                            }
+
+                            chatHistory.push({ sender: 'them', text: messages[index] });
+                            render(); // Re-render chat view
+
+                            // Scroll to bottom
+                            const chatContainer = document.getElementById('chat-messages');
+                            if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                            // Schedule next message
+                            setTimeout(() => addMessagesSequentially(index + 1), 1000);
+                        };
+
+                        // Start adding messages with initial delay
+                        setTimeout(() => addMessagesSequentially(0), 1000);
+                    } catch (e) {
+                        console.error(e);
+                        replyText = "Error: " + e.message;
                     }
                 }
-
-                // Add Reply (Multi-Bubble Support)
-                const messages = replyText.split('|||').map(t => t.trim()).filter(t => t);
-
-                // Function to add messages sequentially
-                const addMessagesSequentially = (index) => {
-                    if (index >= messages.length) {
-                        // All messages added, check for exit
-                        if (shouldExit) {
-                            setTimeout(() => {
-                                if (node.chatMode === 'ai' && node.passNext) {
-                                    // Skip evaluation here, go to Ending first
-                                    triggerNext(node.passNext);
-                                } else {
-                                    triggerNext(node.next);
-                                }
-                            }, 2000);
-                        }
-                        return;
-                    }
-
-                    chatHistory.push({ sender: 'them', text: messages[index] });
-                    render(); // Re-render chat view
-
-                    // Scroll to bottom
-                    const chatContainer = document.getElementById('chat-messages');
-                    if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-
-                    // Schedule next message
-                    setTimeout(() => addMessagesSequentially(index + 1), 1000);
-                };
-
-                // Start adding messages with initial delay
-                setTimeout(() => addMessagesSequentially(0), 1000);
             } catch (e) { alert("Error: " + e.message); }
         }
 
@@ -1682,11 +1670,7 @@
                 document.body.appendChild(overlay);
             }
 
-            let key = node.apiKey || gameData.globalApiKey;
-            if (!key) {
-                const userInputKey = document.getElementById('user-api-key');
-                if (userInputKey) key = userInputKey.value;
-            }
+            // Worker proxy does not require explicit front-end API key
 
             try {
                 const model = node.modelName || gameData.gameSettings?.geminiModel || 'gemini-2.5-flash';
