@@ -1612,6 +1612,9 @@
                             shouldExit = true;
                             rawText = rawText.replace('[[END]]', '').trim();
                         }
+
+                        replyText = rawText;
+
                         // Add Reply (Multi-Bubble Support)
                         const messages = replyText.split('|||').map(t => t.trim()).filter(t => t);
 
